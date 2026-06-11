@@ -248,6 +248,182 @@ def time_weighted_return(vs: pd.DataFrame) -> pd.Series:
     return cum
 
 
+# --------------------------------------------------------------------------- #
+# 5. MONEY-WEIGHTED RETURN (IRR sui flussi di cassa)
+# --------------------------------------------------------------------------- #
+def money_weighted_return(tx: pd.DataFrame,
+                          current_value: float,
+                          end_date=None) -> dict | None:
+    """MWR (Money-Weighted Return) sui flussi di cassa del portafoglio.
+
+    Il MWR è il tasso di rendimento annualizzato che azzera il NPV della
+    sequenza dei flussi (Internal Rate of Return). A differenza del TWR,
+    considera il *timing* dei versamenti: due investitori che hanno comprato
+    gli stessi ETF nello stesso periodo possono avere MWR molto diversi se
+    hanno versato in momenti diversi.
+
+    Convenzione sui segni (dal punto di vista dell'investitore):
+      - BUY:  outflow  (negativo) = cash che esce dalle tasche
+      - SELL: inflow   (positivo) = cash che torna
+      - Valore corrente: trattato come inflow finale ("se liquidassi oggi")
+      - Le commissioni sono incluse nel flusso (drag effettivo)
+
+    Restituisce un dict con:
+      - 'mwr_annualized': tasso annualizzato (confrontabile col TWR annualizzato)
+      - 'mwr_cumulative': rendimento totale sul periodo (non annualizzato)
+      - 'days': giorni totali dal primo flusso a end_date
+      - 'is_short_period': True se days < 365 (caveat sull'annualizzazione)
+      - 'n_flows': numero di flussi reali (esclude il valore finale)
+    Oppure None se i dati sono insufficienti o l'IRR non converge.
+
+    Note metodologiche:
+    - L'annualizzazione di un rendimento ottenuto su pochi mesi tende a
+      sovrastimare la "vera" performance attesa. Per portafogli con storia
+      < 1 anno il flag 'is_short_period' invita prudenza.
+    - Il MWR può non essere unico se i cashflows cambiano segno più volte
+      (raro per un PAC retail tipico, possibile per portafogli con molte
+      vendite). In quel caso la funzione restituisce la prima radice trovata
+      nell'intervallo [-99%, +1000%].
+    """
+    if end_date is None:
+        end_date = tx['date'].max()
+    end_date = pd.Timestamp(end_date).normalize()
+
+    cashflows = []
+    dates = []
+    for _, r in tx.iterrows():
+        d = pd.Timestamp(r['date']).normalize()
+        if r['operation'] == 'BUY':
+            cf = -(r['quantity'] * r['price'] + r['fees'])   # outflow
+        elif r['operation'] == 'SELL':
+            cf = +(r['quantity'] * r['price'] - r['fees'])   # inflow
+        else:
+            continue   # DIV non considerati come flussi per IRR base
+        cashflows.append(cf)
+        dates.append(d)
+
+    if not cashflows or current_value <= 0:
+        return None
+
+    # Inflow finale: il valore corrente del portafoglio
+    cashflows.append(+float(current_value))
+    dates.append(end_date)
+
+    t0 = min(dates)
+    days_from_start = np.array([(d - t0).days for d in dates], dtype=float)
+    days_total = int(days_from_start[-1])
+    if days_total < 1:
+        return None
+
+    cf_arr = np.array(cashflows, dtype=float)
+    irr_annual = _solve_irr(cf_arr, days_from_start)
+    if irr_annual is None:
+        return None
+
+    mwr_cumulative = (1.0 + irr_annual) ** (days_total / 365.0) - 1.0
+    return {
+        'mwr_annualized': float(irr_annual),
+        'mwr_cumulative': float(mwr_cumulative),
+        'days': days_total,
+        'is_short_period': days_total < 365,
+        'n_flows': len(cashflows) - 1,
+    }
+
+
+def _solve_irr(cashflows: np.ndarray, days_from_start: np.ndarray,
+               year_days: float = 365.0) -> float | None:
+    """Risolve l'IRR annualizzato col metodo di Brent (root-finding robusto).
+
+    Cerca un tasso nell'intervallo [-99%, +1000%] che azzeri il NPV. Per
+    valori al di fuori (perdite quasi totali o rendimenti folli), restituisce
+    None invece di propagare un'eccezione.
+    """
+    from scipy.optimize import brentq
+
+    def npv(rate):
+        return np.sum(cashflows / (1.0 + rate) ** (days_from_start / year_days))
+
+    try:
+        # Se i due estremi danno lo stesso segno, brentq fallisce
+        return float(brentq(npv, -0.99, 10.0))
+    except (ValueError, RuntimeError):
+        return None
+
+
+def compare_twr_mwr(twr_cum: pd.Series, mwr_result: dict | None) -> dict:
+    """Confronta TWR e MWR, entrambi annualizzati, con interpretazione testuale.
+
+    Logica:
+      - TWR: rendimento puro degli strumenti (timing-neutral)
+      - MWR: rendimento effettivo considerando il timing dei versamenti
+      - spread = MWR - TWR
+          spread > 0: il timing è stato vantaggioso (versamenti
+                      sovra-pesati su mercati bassi)
+          spread < 0: timing svantaggioso (versamenti sovra-pesati su
+                      mercati alti)
+          spread ≈ 0: il timing è stato neutro
+    """
+    if mwr_result is None:
+        twr_total = float(twr_cum.iloc[-1]) - 1.0 if len(twr_cum) else 0.0
+        return {
+            'twr_cumulative': twr_total, 'twr_annualized': None,
+            'mwr_cumulative': None, 'mwr_annualized': None,
+            'spread_annualized': None, 'days': None, 'is_short_period': None,
+            'interpretation': "MWR non calcolabile (flussi insufficienti o IRR non convergente).",
+        }
+
+    days = mwr_result['days']
+    twr_total = float(twr_cum.iloc[-1]) - 1.0 if len(twr_cum) else 0.0
+    twr_ann = (1.0 + twr_total) ** (365.0 / days) - 1.0 if days > 0 else 0.0
+    mwr_ann = mwr_result['mwr_annualized']
+    spread = mwr_ann - twr_ann
+
+    # Interpretazione testuale
+    NEUTRAL_BAND = 0.005   # ±0.5 pp = "sostanzialmente neutro"
+    if abs(spread) < NEUTRAL_BAND:
+        interp = ("Il timing dei tuoi versamenti è risultato sostanzialmente "
+                  "neutro: il rendimento effettivo (MWR) coincide con la "
+                  "performance pura degli strumenti (TWR).")
+    elif spread > 0:
+        interp = (
+            f"Il timing dei tuoi versamenti è stato vantaggioso: il rendimento "
+            f"effettivo (MWR {mwr_ann*100:+.2f}%) supera quello degli strumenti "
+            f"(TWR {twr_ann*100:+.2f}%) di {spread*100:+.2f} pp annualizzati. "
+            f"Hai mediamente investito di più nei periodi di mercato basso."
+        )
+    else:
+        interp = (
+            f"Il timing dei tuoi versamenti è stato svantaggioso: il rendimento "
+            f"effettivo (MWR {mwr_ann*100:+.2f}%) è inferiore a quello degli "
+            f"strumenti (TWR {twr_ann*100:+.2f}%) di {spread*100:.2f} pp "
+            f"annualizzati. Hai mediamente investito di più nei periodi di "
+            f"mercato alto."
+        )
+
+    if mwr_result['is_short_period']:
+        interp += (
+            f" ⚠️ Il portafoglio ha solo {days} giorni di storia: "
+            f"l'annualizzazione di rendimenti su periodi brevi tende a "
+            f"sovrastimare la performance attesa di lungo periodo."
+        )
+
+    return {
+        'twr_cumulative':     twr_total,
+        'twr_annualized':     twr_ann,
+        'mwr_cumulative':     mwr_result['mwr_cumulative'],
+        'mwr_annualized':     mwr_ann,
+        'spread_annualized':  spread,
+        'days':               days,
+        'is_short_period':    mwr_result['is_short_period'],
+        'interpretation':     interp,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# 6. RIEPILOGO ALTO LIVELLO
+# --------------------------------------------------------------------------- #
+
+
 def summary(holdings_valued: pd.DataFrame, twr_cum: pd.Series) -> dict:
     """Riepilogo numerico di alto livello per la dashboard."""
     mv = holdings_valued["market_value"].sum()
