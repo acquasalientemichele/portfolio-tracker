@@ -59,7 +59,9 @@ def suggest_rebalance(
     holdings_valued : DataFrame con indice=ticker, colonne includono
                       'market_value' e 'weight'
     target_allocation : {ticker: peso_target} con somma 1.0
-    new_cash : importo da investire (€)
+    new_cash : importo netto da investire effettivamente in ETF (€).
+               Le commissioni sono AGGIUNTIVE e vengono pagate sopra questa cifra.
+               Esempio: new_cash=1000 con fee=1€ → 1000€ in ETF, totale conto 1001€.
     prices : ultimo prezzo per ticker (Series o dict)
     threshold : deviazione percentuale sotto cui non vale la pena split
     fee_per_order : commissione fissa per ordine
@@ -110,7 +112,7 @@ def suggest_rebalance(
     primary = max(underweight, key=lambda t: gaps[t])
 
     # Calcola scenario "single buy" sul primary
-    cash_invested_A = new_cash - fee_per_order
+    cash_invested_A = new_cash
     new_holdings_A = {**current_value,
                       primary: current_value[primary] + cash_invested_A}
     weights_post_A = {t: new_holdings_A[t] / v_post for t in all_tickers}
@@ -123,7 +125,7 @@ def suggest_rebalance(
     #   2. Esiste almeno un altro ticker sottopesato in cui versare cash
     # Altrimenti pagheresti 2 commissioni per nulla.
     other_underweight = [t for t in underweight if t != primary]
-    cash_net_B = new_cash - 2 * fee_per_order
+    cash_net_B = new_cash 
 
     if (max_dev_A < threshold) or (not other_underweight) or (cash_net_B <= 0):
         return _build_single_order(
@@ -275,8 +277,8 @@ def _build_single_order(ticker, cash_net, price, fee, weights_post,
     target_pct = target_alloc.get(ticker, 0) * 100
     weight_pct = weights_post[ticker] * 100
     dev_pct = deviation_post[ticker] * 100
-    message = (f"Verso {cash_net + fee:.2f}€ tutti su {ticker}. "
-               f"Costo: {fee:.2f}€ commissione. "
+    message = (f"Investi {cash_net:.2f}€ su {ticker} (totale uscito dal conto: "
+               f"{cash_net + fee:.2f}€, di cui {fee:.2f}€ di commissione). "
                f"Peso post: {weight_pct:.1f}% (target {target_pct:.0f}%, "
                f"deviazione {dev_pct:+.2f} pp, soglia {threshold*100:.1f}%).")
     return {'orders': orders, 'summary': summary, 'message': message}
@@ -311,8 +313,9 @@ def _build_double_order(t1, t2, cash1, cash2, prices, fee,
     }
     message = (
         f"Split necessario (deviazione singolo > {threshold*100:.1f}%). "
-        f"{cash1:.2f}€ su {t1}, {cash2:.2f}€ su {t2}. "
-        f"Costo: {total_fees:.2f}€ commissioni. "
+        f"{cash1:.2f}€ su {t1}, {cash2:.2f}€ su {t2} "
+        f"(totale uscito dal conto: {cash1 + cash2 + total_fees:.2f}€, "
+        f"di cui {total_fees:.2f}€ di commissioni). "
         f"Pesi post: {w1*100:.1f}% / {w2*100:.1f}%."
     )
     return {'orders': orders, 'summary': summary, 'message': message}
