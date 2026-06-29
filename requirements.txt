@@ -5,3 +5,4 @@ openpyxl>=3.1
 pyarrow>=14.0
 matplotlib>=3.7
 jupyter>=1.0
+streamlit>=1.40
