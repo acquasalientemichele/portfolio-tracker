@@ -1,0 +1,73 @@
+# =============================================================================
+# Portfolio Tracker — tema Streamlit
+# =============================================================================
+# Eredita la palette finanziaria da chart_style.py (navy + slate + accenti).
+# Tipografia: Inter per la UI, JetBrains Mono per cifre e codice (effetto
+# allineamento decimali pulito sulle KPI cards).
+#
+# File da posizionare in:   <radice del progetto>/.streamlit/config.toml
+# Richiede Streamlit >= 1.50 (sintassi inline per i font Google).
+#
+# Le opzioni [theme] si applicano in hot-reload: salva il file e ricarica la
+# pagina nel browser, non serve riavviare il server. Le opzioni [browser] e
+# [server] richiedono invece un restart (Ctrl+C + streamlit run).
+# =============================================================================
+
+[theme]
+
+# --- Base ---------------------------------------------------------------------
+# Parte dal tema chiaro built-in, poi sovrascriviamo solo i token che ci interessano.
+base = "light"
+
+# --- Identità cromatica (palette chart_style.py) ------------------------------
+primaryColor              = "#0F4C81"   # navy — colore principale (link, focus, selezione, slider)
+backgroundColor           = "#FFFFFF"   # bianco puro per il main content (coerente con sfondo grafici)
+secondaryBackgroundColor  = "#F8FAFC"   # slate-50 per sidebar, expander, code blocks, KPI cards native
+textColor                 = "#0F172A"   # quasi-nero per il body
+linkColor                 = "#0F4C81"   # link in navy, no underline (vedi sotto)
+linkUnderline             = false
+borderColor               = "#E2E8F0"   # hairline grigio chiaro = colore della grid dei grafici
+
+# --- Bordi e arrotondamenti ---------------------------------------------------
+baseRadius           = "small"   # ~8px su controlli e cards (coerente col mockup)
+showWidgetBorder     = true      # bordo hairline su input, select, ecc.
+showSidebarBorder    = true      # divisorio verticale sidebar/main
+
+# --- Tipografia ---------------------------------------------------------------
+# Caricamento inline dei Google Fonts. Fallback a sans-serif/monospace di sistema
+# se il CDN non risponde. Pesi: 400 (regular), 500 (medium/bold).
+font     = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap, sans-serif"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap, monospace"
+
+# --- Palette per grafici Streamlit nativi -------------------------------------
+# Usata da st.line_chart, st.bar_chart, st.area_chart, sparkline nei dataframe.
+# NON influenza matplotlib (chart_style.py) né Plotly (futuro plotly_style.py).
+# Ordine = stessa priorità di PALETTE in chart_style.py.
+chartCategoricalColors = [
+    "#0F4C81",   # navy (value)
+    "#7C3AED",   # viola (accent)
+    "#D97706",   # arancio bruciato (benchmark)
+    "#10B981",   # verde (gain)
+    "#EF4444",   # rosso (loss)
+    "#64748B",   # grigio (muted)
+    "#0891B2",   # ciano
+    "#DB2777",   # pink
+]
+
+
+# =============================================================================
+# [theme.sidebar] — override mirati per la sidebar (opzionale)
+# =============================================================================
+# La sidebar eredita già tutto da [theme] grazie a secondaryBackgroundColor.
+# Sblocca questa sezione solo se vuoi differenziarla ulteriormente (es. font
+# più piccolo, bordi diversi). Per ora lasciata vuota: identità coerente.
+#
+# [theme.sidebar]
+# textColor = "#475569"
+
+
+# =============================================================================
+# [browser] — telemetria
+# =============================================================================
+[browser]
+gatherUsageStats = false   # app personale, non inviamo statistiche
