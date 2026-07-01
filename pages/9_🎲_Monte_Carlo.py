@@ -190,6 +190,11 @@ except Exception as e:
 cal = result["calibration"]
 sim = result["simulation"]
 
+# Il dict `cal` espone la Series `returns` grezza ma non gli aggregati
+# annualizzati: li calcoliamo qui con le formule standard.
+ann_return = (1 + cal["returns"]).prod() ** (mc.TRADING_DAYS_PER_YEAR / cal["n_days"]) - 1
+ann_vol = cal["returns"].std() * np.sqrt(mc.TRADING_DAYS_PER_YEAR)
+
 # --------------------------------------------------------------------------- #
 # CALIBRAZIONE — pannello informativo compatto
 # --------------------------------------------------------------------------- #
@@ -199,12 +204,12 @@ st.subheader("Calibrazione storica")
 ccol1, ccol2, ccol3 = st.columns(3)
 ccol1.metric(
     "Rendimento storico ann.",
-    f"{cal['annual_return']:+.2%}",
+    f"{ann_return:+.2%}",
     help="Rendimento geometrico annualizzato calcolato sul periodo di lookback.",
 )
 ccol2.metric(
     "Volatilità storica ann.",
-    f"{cal['annual_volatility']:.2%}",
+    f"{ann_vol:.2%}",
     help="Deviazione standard annualizzata dei rendimenti giornalieri.",
 )
 ccol3.metric(
