@@ -24,12 +24,14 @@ from rebalance import (
     DEFAULT_THRESHOLD, DEFAULT_FEE_PER_ORDER,
     PROJECTION_TARGET_BAND,
 )
-from streamlit_utils import ensure_data_loaded, render_sidebar
+from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
 st.set_page_config(page_title="Ribilanciamento", page_icon="⚖️", layout="wide")
+
+inject_css()
 
 tx, prices, settings = ensure_data_loaded()
 render_sidebar()

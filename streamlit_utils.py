@@ -2,11 +2,15 @@
 streamlit_utils.py — helper condivisi tra le pagine Streamlit.
 
 Punto unico dove si definisce:
+- il CSS custom della pagina (inject_css)
 - come si caricano i dati base (transactions, prices, settings)
 - come si presenta la sidebar globale
 
-Le pagine in `pages/` chiamano queste due funzioni all'inizio e si
-dimenticano del resto: data loading e sidebar sono identici ovunque.
+Le pagine in `pages/` chiamano queste tre funzioni all'inizio nell'ordine:
+
+    inject_css()          # CSS custom (tipografia, KPI cards, sidebar polish)
+    ensure_data_loaded()  # tx, prices, settings in session_state
+    render_sidebar()      # info file + pulsante ricarica
 
 Tutto ciò che è specifico di Streamlit vive qui o nelle pagine.
 I moduli `portfolio.py`, `costs.py`, ecc. restano puri (zero `import
@@ -16,6 +20,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from textwrap import dedent
 
 import pandas as pd
 import streamlit as st
@@ -126,3 +131,103 @@ def render_sidebar() -> None:
             for key in ("tx", "prices", "settings"):
                 st.session_state.pop(key, None)
             st.rerun()
+
+
+# --------------------------------------------------------------------------- #
+# CSS INJECTION
+# --------------------------------------------------------------------------- #
+def inject_css() -> None:
+    """Inietta il CSS custom del portfolio tracker nella pagina corrente.
+
+    Da chiamare in cima a ogni pagina, subito dopo `st.set_page_config()`
+    e prima di `ensure_data_loaded()` / `render_sidebar()`.
+
+    Il CSS applica cinque blocchi di rifinitura, complementari a quanto
+    già definito in `.streamlit/config.toml`:
+
+    A) Chrome cleanup — nasconde il footer "Made with Streamlit" e
+       riduce il padding-top del main container (default ~6rem → 2rem).
+       Il MainMenu resta visibile (utile in sviluppo).
+    B) Tipografia dei numeri — JetBrains Mono con `tabular-nums` sulle
+       cifre di `st.metric` e sui componenti HTML con classe `.num-mono`.
+       Allineamento decimali pulito e look "terminale finanziario".
+    C) Tipografia dei titoli — letter-spacing leggero + font-weight 500
+       (Inter Medium) su h1/h2/h3; label delle metric in small-caps
+       (uppercase, tracking, size 12px).
+    D) Sidebar polish — padding ridotto (i default Streamlit sono un po'
+       larghi), hover leggermente più scuro sulla nav automatica.
+    E) `st.metric` come card — sfondo slate-50, border-radius 12px,
+       padding 12px. Effetto "KPI card" uniforme su tutte le pagine.
+
+    Non modifica nulla che sia già gestito da:
+    - `.streamlit/config.toml`  →  colori base, font, radius dei widget
+    - `chart_style.py`          →  grafici matplotlib
+    - `plotly_style.py` (WIP)   →  grafici Plotly futuri
+
+    Sicuro da chiamare a ogni rerun: Streamlit rimpiazza il blocco
+    <style> nella stessa posizione del render tree, non lo accumula.
+
+    Selettori `data-testid` verificati per Streamlit 1.50+. Se aggiorni
+    a una major successiva controlla che non siano stati rinominati:
+    stMetricValue, stMetricDelta, stMetricLabel, stMetric, stSidebar,
+    stSidebarNav, stMainBlockContainer.
+    """
+    css = dedent("""
+        <style>
+        /* ==== A) Chrome cleanup ============================================ */
+        footer { visibility: hidden; }
+        [data-testid="stMainBlockContainer"] {
+            padding-top: 2rem;
+        }
+
+        /* ==== B) Tipografia dei numeri ===================================== */
+        /* JetBrains Mono + tabular-nums per allineamento decimali pulito */
+        [data-testid="stMetricValue"],
+        [data-testid="stMetricDelta"] {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: 'tnum';
+            letter-spacing: -0.01em;
+        }
+        /* Classe custom per componenti HTML delle pagine (KPI cards, tabelle) */
+        .num-mono {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: 'tnum';
+        }
+
+        /* ==== C) Tipografia dei titoli ===================================== */
+        h1, h2, h3 {
+            letter-spacing: -0.005em;
+            font-weight: 500;
+        }
+        /* Label delle metric in small-caps stile Bloomberg/FT */
+        [data-testid="stMetricLabel"] {
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 12px;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        /* ==== D) Sidebar polish ============================================ */
+        [data-testid="stSidebar"] > div:first-child {
+            padding-top: 2rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        [data-testid="stSidebarNav"] a:hover {
+            background-color: #F1F5F9;
+        }
+
+        /* ==== E) st.metric come card ======================================= */
+        [data-testid="stMetric"] {
+            background-color: #F8FAFC;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 0.5rem;
+        }
+        </style>
+    """).strip()
+
+    st.markdown(css, unsafe_allow_html=True)

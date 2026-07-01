@@ -20,12 +20,14 @@ from matplotlib.ticker import FuncFormatter
 import portfolio as pf
 import costs as cst
 import chart_style as cs
-from streamlit_utils import ensure_data_loaded, render_sidebar, TX_FILE
+from streamlit_utils import ensure_data_loaded, render_sidebar, TX_FILE, inject_css
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
 st.set_page_config(page_title="Costi", page_icon="💸", layout="wide")
+
+inject_css()
 
 tx, prices, _ = ensure_data_loaded()
 render_sidebar()

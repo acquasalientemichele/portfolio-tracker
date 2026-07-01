@@ -14,12 +14,14 @@ from __future__ import annotations
 import streamlit as st
 
 import portfolio as pf
-from streamlit_utils import ensure_data_loaded, render_sidebar
+from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
 st.set_page_config(page_title="Holdings", page_icon="📊", layout="wide")
+
+inject_css()
 
 tx, prices, _ = ensure_data_loaded()
 render_sidebar()
