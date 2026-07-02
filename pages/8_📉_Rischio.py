@@ -33,7 +33,7 @@ st.set_page_config(page_title="Rischio", page_icon="📉", layout="wide")
 inject_css()
 
 tx, prices, settings = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="rischio")
 cs.apply_global_style()
 
 benchmark_ticker = settings.get("benchmark_ticker", "VWCE.DE")
@@ -56,7 +56,7 @@ rf_default = rk.DEFAULT_RISK_FREE_RATE
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("📉 Rischio")
+st.title("Rischio")
 st.caption(
     "Metriche di rischio e drawdown analysis. "
     "Le metriche annualizzate vanno lette tenendo conto della storia disponibile."

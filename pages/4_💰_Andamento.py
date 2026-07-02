@@ -27,7 +27,7 @@ st.set_page_config(page_title="Andamento", page_icon="💰", layout="wide")
 inject_css()
 
 tx, prices, _ = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="andamento")
 cs.apply_global_style()
 
 # --------------------------------------------------------------------------- #
@@ -45,7 +45,7 @@ pnl_pct = pnl / last_i if last_i else 0.0
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("💰 Andamento del valore")
+st.title("Andamento del valore")
 st.caption("Valore di mercato del portafoglio vs capitale investito cumulato")
 
 col1, col2, col3, col4 = st.columns(4)

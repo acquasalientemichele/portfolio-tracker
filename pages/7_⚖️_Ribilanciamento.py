@@ -34,7 +34,7 @@ st.set_page_config(page_title="Ribilanciamento", page_icon="⚖️", layout="wid
 inject_css()
 
 tx, prices, settings = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="ribilanciamento")
 cs.apply_global_style()
 
 # --------------------------------------------------------------------------- #
@@ -50,7 +50,7 @@ prices_now = prices.iloc[-1]
 # --------------------------------------------------------------------------- #
 # HEADER + GUARD
 # --------------------------------------------------------------------------- #
-st.title("⚖️ Ribilanciamento PAC")
+st.title("Ribilanciamento PAC")
 st.caption(
     "Suggerimento operativo per il prossimo versamento e proiezione "
     "della convergenza al target."

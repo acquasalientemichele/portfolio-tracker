@@ -28,7 +28,7 @@ st.set_page_config(page_title="Allocazione", page_icon="🎯", layout="wide")
 inject_css()
 
 tx, prices, settings = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="allocazione")
 cs.apply_global_style()
 
 # --------------------------------------------------------------------------- #
@@ -62,7 +62,7 @@ alloc["off_threshold"] = alloc["abs_deviation"] > threshold
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("🎯 Allocazione")
+st.title("Allocazione")
 st.caption(
     "Pesi correnti vs target. La soglia oltre la quale conviene "
     f"considerare un ribilanciamento è del {threshold:.0%}."

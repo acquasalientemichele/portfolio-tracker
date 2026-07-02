@@ -30,7 +30,7 @@ st.set_page_config(page_title="Costi", page_icon="💸", layout="wide")
 inject_css()
 
 tx, prices, _ = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="costi")
 cs.apply_global_style()
 
 
@@ -62,7 +62,7 @@ summary = cst.cost_summary(tx, holdings_valued, vs, costs_cfg)
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("💸 Costi e fiscalità")
+st.title("Costi e fiscalità")
 st.caption(
     "Cascata dal P&L lordo al P&L netto netto. "
     "Le imposte sulle plusvalenze sono **simulate** ('se vendessi oggi')."

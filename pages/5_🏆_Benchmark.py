@@ -29,7 +29,7 @@ st.set_page_config(page_title="Benchmark", page_icon="🏆", layout="wide")
 inject_css()
 
 tx, prices, settings = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="benchmark")
 cs.apply_global_style()
 
 benchmark_ticker = settings.get("benchmark_ticker", "VWCE.DE")
@@ -69,7 +69,7 @@ alpha_vs_bench = ret_p - ret_b  # outperformance vs benchmark (lordo)
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("🏆 Performance vs Benchmark")
+st.title("Performance vs Benchmark")
 st.caption(
     f"Confronto del rendimento (TWR) con il benchmark **{benchmark_ticker}**, "
     f"tutte le serie normalizzate a 1.0 al primo giorno di operatività"

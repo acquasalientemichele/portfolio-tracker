@@ -29,7 +29,7 @@ st.set_page_config(page_title="Monte Carlo", page_icon="🎲", layout="wide")
 inject_css()
 
 tx, prices, settings = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="monte_carlo")
 cs.apply_global_style()
 
 # --------------------------------------------------------------------------- #
@@ -43,7 +43,7 @@ target = settings.get("target_allocation", {})
 # --------------------------------------------------------------------------- #
 # HEADER + GUARD
 # --------------------------------------------------------------------------- #
-st.title("🎲 Monte Carlo — Proiezione PAC")
+st.title("Monte Carlo — Proiezione PAC")
 st.caption(
     "Simulazione probabilistica del portafoglio nei prossimi anni, "
     "assumendo continuazione del PAC mensile e rendimenti IID calibrati "

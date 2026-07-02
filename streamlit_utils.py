@@ -4,13 +4,18 @@ streamlit_utils.py — helper condivisi tra le pagine Streamlit.
 Punto unico dove si definisce:
 - il CSS custom della pagina (inject_css)
 - come si caricano i dati base (transactions, prices, settings)
-- come si presenta la sidebar globale
+- come si presenta la sidebar globale (brand + nav custom + info file)
 
 Le pagine in `pages/` chiamano queste tre funzioni all'inizio nell'ordine:
 
-    inject_css()          # CSS custom (tipografia, KPI cards, sidebar polish)
-    ensure_data_loaded()  # tx, prices, settings in session_state
-    render_sidebar()      # info file + pulsante ricarica
+    inject_css()
+    ensure_data_loaded()
+    render_sidebar(current_page="benchmark")  # key da NAV_ITEMS
+
+La nav automatica di Streamlit (`[data-testid="stSidebarNav"]`) viene
+nascosta via CSS: la sostituiamo con una nav custom che monta le icone
+SVG del design system (assets/icons/) e permette di evidenziare l'item
+attivo con il pattern navy del mockup Claude Design.
 
 Tutto ciò che è specifico di Streamlit vive qui o nelle pagine.
 I moduli `portfolio.py`, `costs.py`, ecc. restano puri (zero `import
@@ -19,6 +24,7 @@ streamlit`), così continuano a funzionare nel notebook senza modifiche.
 from __future__ import annotations
 
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from textwrap import dedent
 
@@ -31,6 +37,24 @@ import portfolio as pf
 # CONFIG
 # --------------------------------------------------------------------------- #
 TX_FILE = Path("data/transactions.xlsx")
+ICONS_DIR = Path("assets/icons")
+
+# Navigation della sidebar custom.
+# Ordine = ordine di apparizione. La `key` è l'identificativo passato dalle
+# pagine a render_sidebar() per evidenziare l'item attivo. L'`url` è il path
+# gestito dal routing multi-page di Streamlit (derivato dal nome file in
+# pages/ dopo che Streamlit rimuove prefisso numerico, emoji e .py).
+NAV_ITEMS: tuple[dict, ...] = (
+    {"key": "holdings",        "label": "Home",            "icon": "home",            "url": "/Holdings"},
+    {"key": "performance",     "label": "Performance",     "icon": "performance",     "url": "/Performance"},
+    {"key": "allocazione",     "label": "Allocazione",     "icon": "allocazione",     "url": "/Allocazione"},
+    {"key": "andamento",       "label": "Andamento",       "icon": "andamento",       "url": "/Andamento"},
+    {"key": "benchmark",       "label": "Vs benchmark",    "icon": "benchmark",       "url": "/Benchmark"},
+    {"key": "costi",           "label": "Costi e fisco",   "icon": "costi",           "url": "/Costi"},
+    {"key": "ribilanciamento", "label": "Ribilanciamento", "icon": "ribilanciamento", "url": "/Ribilanciamento"},
+    {"key": "rischio",         "label": "Rischio",         "icon": "rischio",         "url": "/Rischio"},
+    {"key": "monte_carlo",     "label": "Monte Carlo",     "icon": "monte-carlo",     "url": "/Monte_Carlo"},
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -104,17 +128,70 @@ def ensure_data_loaded() -> tuple[pd.DataFrame, pd.DataFrame, dict]:
 
 
 # --------------------------------------------------------------------------- #
+# ICON LOADER
+# --------------------------------------------------------------------------- #
+@lru_cache(maxsize=None)
+def load_icon(name: str) -> str:
+    """Carica un'icona SVG dalla cartella `assets/icons/{name}.svg`.
+
+    Le icone hanno `stroke="currentColor"` così ereditano il colore dal
+    CSS del contenitore (navy #0F4C81 quando .active, slate #94A3B8 di
+    default, tramite le regole del blocco F di inject_css).
+
+    Cache con lru_cache: le SVG sono immutabili durante la sessione,
+    lette una volta e riusate a ogni rerun di ogni pagina.
+
+    Return: contenuto SVG come stringa. Se il file non esiste restituisce
+    stringa vuota (graceful fallback: l'item appare senza icona invece
+    di crashare la pagina).
+    """
+    path = ICONS_DIR / f"{name}.svg"
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- #
 # SIDEBAR GLOBALE
 # --------------------------------------------------------------------------- #
-def render_sidebar() -> None:
-    """Renderizza la sidebar globale: info file + pulsante ricarica.
+def render_sidebar(current_page: str = "") -> None:
+    """Renderizza la sidebar globale: brand + nav custom + info file + reload.
 
-    Va chiamata da ogni pagina dopo `ensure_data_loaded()`.
-    Streamlit non ha un meccanismo nativo di "sidebar condivisa" in modalità
-    pages/: la sidebar di navigazione è automatica, ma il contenuto extra
-    va aggiunto pagina per pagina.
+    La nav automatica di Streamlit è nascosta da inject_css (blocco D).
+    Qui iniettiamo:
+    1) l'header "PORTFOLIO TRACKER" in navy caps
+    2) la nav custom con SVG inline: un item per ogni voce di NAV_ITEMS
+    3) la sezione "Dati" con info file + pulsante ricarica (invariata)
+
+    L'item con `key == current_page` riceve la classe `.active` e viene
+    evidenziato dal CSS con bordo left navy + background bianco + testo
+    e icona in navy.
+
+    Args:
+        current_page: chiave dell'item attivo (deve matchare una `key` di
+            NAV_ITEMS). Default "": nessun item risulta evidenziato — utile
+            per pagine di "landing" o durante refactoring, senza rompere
+            nulla.
+
+    Va chiamata da ogni pagina dopo `inject_css()` ed `ensure_data_loaded()`.
     """
     with st.sidebar:
+        # --- Brand + nav custom (HTML unico blocco) ---
+        parts = ['<div class="pt-brand">PORTFOLIO TRACKER</div>',
+                 '<nav class="pt-nav">']
+        for item in NAV_ITEMS:
+            active_cls = " active" if item["key"] == current_page else ""
+            icon_svg = load_icon(item["icon"])
+            parts.append(
+                f'<a href="{item["url"]}" target="_self" '
+                f'class="pt-nav-item{active_cls}">'
+                f'{icon_svg}<span>{item["label"]}</span>'
+                f'</a>'
+            )
+        parts.append('</nav>')
+        st.markdown("".join(parts), unsafe_allow_html=True)
+
+        # --- Sezione Dati (invariata) ---
         st.divider()
         st.header("⚙️ Dati")
 
@@ -154,10 +231,12 @@ def inject_css() -> None:
     C) Tipografia dei titoli — letter-spacing leggero + font-weight 500
        (Inter Medium) su h1/h2/h3; label delle metric in small-caps
        (uppercase, tracking, size 12px).
-    D) Sidebar polish — padding ridotto (i default Streamlit sono un po'
-       larghi), hover leggermente più scuro sulla nav automatica.
+    D) Sidebar polish — padding ridotto e nav automatica di Streamlit
+       nascosta (viene sostituita dalla nav custom in render_sidebar).
     E) `st.metric` come card — sfondo slate-50, border-radius 12px,
        padding 12px. Effetto "KPI card" uniforme su tutte le pagine.
+    F) Nav custom della sidebar — stile brand, nav item, hover e active
+       state con bordo left navy. Match del mockup Claude Design.
 
     Non modifica nulla che sia già gestito da:
     - `.streamlit/config.toml`  →  colori base, font, radius dei widget
@@ -216,8 +295,10 @@ def inject_css() -> None:
             padding-left: 1rem;
             padding-right: 1rem;
         }
-        [data-testid="stSidebarNav"] a:hover {
-            background-color: #F1F5F9;
+        /* Nasconde la nav automatica: la sostituiamo con quella custom
+           costruita in render_sidebar() (blocco F qui sotto). */
+        [data-testid="stSidebarNav"] {
+            display: none;
         }
 
         /* ==== E) st.metric come card ======================================= */
@@ -226,6 +307,59 @@ def inject_css() -> None:
             border-radius: 12px;
             padding: 12px 14px;
             margin-bottom: 0.5rem;
+        }
+
+        /* ==== F) Nav custom della sidebar ================================== */
+        /* Brand "PORTFOLIO TRACKER" in caps navy */
+        .pt-brand {
+            color: #0F4C81;
+            font-weight: 500;
+            font-size: 22px;
+            letter-spacing: -0.005em;
+            padding: 4px 6px 20px;
+        }
+        /* Container della nav */
+        .pt-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        /* Singolo item della nav (link) */
+        .pt-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #475569;
+            text-decoration: none;
+            transition: background-color 0.15s ease;
+        }
+        .pt-nav-item svg {
+            flex-shrink: 0;
+            color: #94A3B8;
+            width: 20px;
+            height: 20px;
+        }
+        .pt-nav-item:hover {
+            background-color: #F1F5F9;
+            color: #475569;
+        }
+        .pt-nav-item:hover svg {
+            color: #64748B;
+        }
+        /* Item attivo: bordo left navy + background bianco + testo/icona navy */
+        .pt-nav-item.active {
+            background: #FFFFFF;
+            color: #0F4C81;
+            font-weight: 500;
+            box-shadow: inset 3px 0 0 #0F4C81;
+            border-radius: 0 6px 6px 0;
+            padding-left: 12px;
+        }
+        .pt-nav-item.active svg {
+            color: #0F4C81;
         }
         </style>
     """).strip()

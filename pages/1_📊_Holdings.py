@@ -24,7 +24,7 @@ st.set_page_config(page_title="Holdings", page_icon="📊", layout="wide")
 inject_css()
 
 tx, prices, _ = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="holdings")
 
 # --------------------------------------------------------------------------- #
 # CALCOLI
@@ -37,7 +37,7 @@ holdings_valued = pf.value_holdings(holdings, prices)
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("📊 Holdings")
+st.title("Holdings")
 st.caption("Posizioni correnti, P&L per ticker e pesi nel portafoglio")
 
 # --------------------------------------------------------------------------- #

@@ -25,7 +25,7 @@ st.set_page_config(page_title="Performance", page_icon="📈", layout="wide")
 inject_css()
 
 tx, prices, _ = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="performance")
 
 # Applichiamo lo stile globale matplotlib una volta per pagina (rcParams)
 cs.apply_global_style()
@@ -47,7 +47,7 @@ compare = pf.compare_twr_mwr(twr_cum, mwr)
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("📈 Performance")
+st.title("Performance")
 st.caption("Time-Weighted Return (GIPS-compliant) e Money-Weighted Return (IRR)")
 
 # --------------------------------------------------------------------------- #
