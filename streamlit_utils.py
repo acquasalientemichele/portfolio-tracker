@@ -119,6 +119,9 @@ def ensure_data_loaded() -> tuple[pd.DataFrame, pd.DataFrame, dict]:
         st.session_state["tx"] = tx
         st.session_state["prices"] = prices
         st.session_state["settings"] = settings
+        # Salva l'ultima data prezzo per mostrarla in sidebar: aiuta l'utente
+        # a capire se i dati sono aggiornati senza dover aprire una pagina.
+        st.session_state["prices_last_date"] = prices.index.max()
 
     return (
         st.session_state["tx"],
@@ -198,14 +201,26 @@ def render_sidebar(current_page: str = "") -> None:
         if TX_FILE.exists():
             mtime = datetime.fromtimestamp(TX_FILE.stat().st_mtime)
             st.caption(f"📁 `{TX_FILE.name}`")
-            st.caption(f"🕒 Ultima modifica: {mtime:%d/%m/%Y %H:%M}")
+            st.caption(f"🕒 File aggiornato: {mtime:%d/%m/%Y %H:%M}")
+
+        # Data dell'ultimo prezzo yfinance (salvata in session_state da
+        # ensure_data_loaded). Utile per capire se serve premere Ricarica.
+        if "prices_last_date" in st.session_state:
+            last_date = st.session_state["prices_last_date"]
+            st.caption(f"📈 Prezzi al: {last_date:%d/%m/%Y}")
 
         if st.button("🔄 Ricarica dati", use_container_width=True,
-                     help="Svuota la cache e ricarica file Excel + prezzi"):
+                     help="Forza il download da yfinance e ricarica l'Excel"):
+            # Ordine critico:
+            # 1) cancella la cache parquet di portfolio.py (prices_cache.parquet):
+            #    senza questo, fetch_prices vede i ticker già in cache e non
+            #    ri-scarica da yfinance, restituendo prezzi stale.
+            # 2) svuota la cache Streamlit di load_tx/load_settings/fetch_prices.
+            # 3) svuota session_state, altrimenti ensure_data_loaded trova
+            #    i dati vecchi al rerun e non li ricarica.
+            pf.refresh_cache()
             st.cache_data.clear()
-            # Svuota anche session_state, altrimenti i dati vecchi
-            # restano fino al prossimo cambio di chiave
-            for key in ("tx", "prices", "settings"):
+            for key in ("tx", "prices", "settings", "prices_last_date"):
                 st.session_state.pop(key, None)
             st.rerun()
 
