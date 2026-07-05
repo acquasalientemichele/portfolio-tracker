@@ -405,10 +405,61 @@ def inject_css() -> None:
             gap: 4px;
         }
         .pt-kpi-help {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             font-size: 13px;
             color: #94A3B8;
             cursor: help;
             font-weight: 400;
+            outline: none;
+            user-select: none;
+        }
+        .pt-kpi-help:hover,
+        .pt-kpi-help:focus {
+            color: #64748B;
+        }
+        /* Tooltip custom: appare al hover (desktop) e al focus (click/tap).
+           Sostituisce il tooltip nativo HTML title= che appariva solo su
+           hover con delay e non su mobile. Feature-parity con st.metric. */
+        .pt-kpi-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 260px;
+            padding: 10px 12px;
+            background: #1E293B;
+            color: #F8FAFC;
+            border-radius: 6px;
+            font-size: 12px;
+            line-height: 1.5;
+            text-transform: none;
+            letter-spacing: normal;
+            font-weight: 400;
+            text-align: left;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 1000;
+            pointer-events: none;
+            white-space: normal;
+        }
+        /* Piccola freccia sotto il tooltip che punta all'icona ⓘ */
+        .pt-kpi-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #1E293B;
+        }
+        .pt-kpi-help:hover .pt-kpi-tooltip,
+        .pt-kpi-help:focus .pt-kpi-tooltip {
+            visibility: visible;
+            opacity: 1;
         }
         .pt-kpi-value {
             font-family: 'JetBrains Mono', ui-monospace, monospace;

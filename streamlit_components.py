@@ -110,12 +110,16 @@ def kpi_card(
             f"Valori ammessi: {_VALID_DELTA_KINDS}"
         )
 
-    # Label con tooltip opzionale
+   # Label con tooltip opzionale
     label_html = escape(label)
     if help is not None:
         label_html += (
-            f'<span class="pt-kpi-help" title="{escape(help)}">'
-            f'&#9432;</span>'  # ⓘ info icon
+            f'<span class="pt-kpi-help" tabindex="0" '
+            f'role="button" aria-label="Info: {escape(help)}">'
+            f'&#9432;'  # ⓘ info icon
+            f'<span class="pt-kpi-tooltip" role="tooltip">'
+            f'{escape(help)}</span>'
+            f'</span>'
         )
 
     # Delta: chip visibile se fornito, altrimenti placeholder invisibile

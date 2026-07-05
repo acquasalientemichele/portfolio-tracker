@@ -257,9 +257,10 @@ st.pyplot(fig, use_container_width=True)
 st.subheader(f"Top {rk.DEFAULT_TOP_N_DRAWDOWNS} drawdowns")
 
 if len(top_dds) == 0:
-    st.success(
-        f"✅ Nessun drawdown significativo (> "
-        f"{rk.DEFAULT_DRAWDOWN_THRESHOLD:.1%}) registrato finora."
+    callout(
+        f"Nessun drawdown significativo (> "
+        f"{rk.DEFAULT_DRAWDOWN_THRESHOLD:.1%}) registrato finora.",
+        kind="success",
     )
 else:
     view = top_dds.copy()
@@ -308,7 +309,7 @@ st.subheader("Interpretazione")
 
 # Il modulo risk.py genera già un'interpretazione testuale ricca
 # che incorpora confidence, vol, Sharpe e drawdown.
-st.info("💡 " + metrics["interpretation"])
+callout(metrics["interpretation"], kind="info")
 
 # --------------------------------------------------------------------------- #
 # EXPANDER DIDATTICO
