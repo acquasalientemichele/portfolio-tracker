@@ -134,57 +134,64 @@ def fmt_pct(v: float, signed: bool = False) -> str:
 
 # Riga 1: volatilità, Sharpe, Sortino
 row1c1, row1c2, row1c3 = st.columns(3)
-row1c1.metric(
-    "Volatilità annualizzata",
-    fmt_pct(metrics["volatility_annualized"]),
-    help="Deviazione standard dei rendimenti giornalieri × √252. "
-         "È la misura standard di rischio per portafogli azionari.",
-)
-row1c2.metric(
-    "Sharpe ratio",
-    fmt_ratio(metrics["sharpe_ratio"]),
-    delta=f"vs rf {rf_annual:.1%}",
-    delta_color="off",
-    help="(Rendimento ann. − risk-free) / volatilità ann. "
-         "Misura il rendimento per unità di rischio totale. "
-         "Indicativamente: > 1 buono, > 2 eccellente, < 0 il portafoglio "
-         "rende meno del risk-free.",
-)
-row1c3.metric(
-    "Sortino ratio",
-    fmt_ratio(metrics["sortino_ratio"]),
-    delta=f"vs rf {rf_annual:.1%}",
-    delta_color="off",
-    help="Come Sharpe ma usa solo la volatilità *downside* (rendimenti < 0). "
-         "Filosoficamente più giusto per chi considera 'rischio' solo le "
-         "perdite. ∞ = nessun rendimento negativo in tutta la storia.",
-)
+with row1c1:
+    kpi_card(
+        "Volatilità annualizzata",
+        fmt_pct(metrics["volatility_annualized"]),
+        help="Deviazione standard dei rendimenti giornalieri × √252. "
+             "È la misura standard di rischio per portafogli azionari.",
+    )
+with row1c2:
+    kpi_card(
+        "Sharpe ratio",
+        fmt_ratio(metrics["sharpe_ratio"]),
+        delta=f"vs rf {rf_annual:.1%}",
+        delta_kind="neutral",
+        help="(Rendimento ann. − risk-free) / volatilità ann. "
+             "Misura il rendimento per unità di rischio totale. "
+             "Indicativamente: > 1 buono, > 2 eccellente, < 0 il portafoglio "
+             "rende meno del risk-free.",
+    )
+with row1c3:
+    kpi_card(
+        "Sortino ratio",
+        fmt_ratio(metrics["sortino_ratio"]),
+        delta=f"vs rf {rf_annual:.1%}",
+        delta_kind="neutral",
+        help="Come Sharpe ma usa solo la volatilità *downside* (rendimenti < 0). "
+             "Filosoficamente più giusto per chi considera 'rischio' solo le "
+             "perdite. ∞ = nessun rendimento negativo in tutta la storia.",
+    )
 
 # Riga 2: beta, max drawdown, rendimento annualizzato
 row2c1, row2c2, row2c3 = st.columns(3)
-row2c1.metric(
-    f"Beta vs {benchmark_ticker}",
-    fmt_ratio(metrics["beta_vs_benchmark"]),
-    help="Sensibilità del portafoglio ai movimenti del benchmark. "
-         "= 1: si muove come il benchmark. "
-         "> 1: più volatile del benchmark. "
-         "< 1: meno volatile.",
-)
-row2c2.metric(
-    "Max drawdown",
-    fmt_pct(metrics["max_drawdown"], signed=True),
-    delta=("in corso" if metrics["is_currently_in_drawdown"] else "recuperato"),
-    delta_color="inverse" if metrics["is_currently_in_drawdown"] else "normal",
-    help="Massima perdita peak-to-trough nel periodo. "
-         "È la metrica più 'pancia' del rischio: è quanto vedi rosso "
-         "nel momento peggiore.",
-)
-row2c3.metric(
-    "Rendimento annualizzato",
-    fmt_pct(metrics["annualized_return"], signed=True),
-    help="Rendimento geometrico annualizzato del portafoglio. "
-         "Su periodi brevi tende a sovrastimare la performance attesa.",
-)
+with row2c1:
+    kpi_card(
+        f"Beta vs {benchmark_ticker}",
+        fmt_ratio(metrics["beta_vs_benchmark"]),
+        help="Sensibilità del portafoglio ai movimenti del benchmark. "
+             "= 1: si muove come il benchmark. "
+             "> 1: più volatile del benchmark. "
+             "< 1: meno volatile.",
+    )
+with row2c2:
+    in_dd = metrics["is_currently_in_drawdown"]
+    kpi_card(
+        "Max drawdown",
+        fmt_pct(metrics["max_drawdown"], signed=True),
+        delta="in corso" if in_dd else "recuperato",
+        delta_kind="negative" if in_dd else "positive",
+        help="Massima perdita peak-to-trough nel periodo. "
+             "È la metrica più 'pancia' del rischio: è quanto vedi rosso "
+             "nel momento peggiore.",
+    )
+with row2c3:
+    kpi_card(
+        "Rendimento annualizzato",
+        fmt_pct(metrics["annualized_return"], signed=True),
+        help="Rendimento geometrico annualizzato del portafoglio. "
+             "Su periodi brevi tende a sovrastimare la performance attesa.",
+    )
 
 st.divider()
 
