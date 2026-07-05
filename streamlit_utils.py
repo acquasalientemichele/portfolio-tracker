@@ -180,7 +180,7 @@ def render_sidebar(current_page: str = "") -> None:
     """
     with st.sidebar:
         # --- Brand + nav custom (HTML unico blocco) ---
-        parts = ['<div class="pt-brand">PORTFOLIO TRACKER</div>',
+        parts = ['<div class="pt-brand">Portfolio<br>Tracker</div>',
                  '<nav class="pt-nav">']
         for item in NAV_ITEMS:
             active_cls = " active" if item["key"] == current_page else ""
@@ -330,8 +330,9 @@ def inject_css() -> None:
             color: #0F4C81;
             font-weight: 500;
             font-size: 22px;
-            letter-spacing: -0.005em;
-            padding: 4px 6px 20px;
+            letter-spacing: -0.01em;
+            line-height: 1.15;
+            padding: 4px 6px 24px;
         }
         /* Container della nav */
         .pt-nav {
