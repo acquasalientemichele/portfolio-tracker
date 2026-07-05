@@ -252,6 +252,12 @@ def inject_css() -> None:
        padding 12px. Effetto "KPI card" uniforme su tutte le pagine.
     F) Nav custom della sidebar — stile brand, nav item, hover e active
        state con bordo left navy. Match del mockup Claude Design.
+    G) KPI card custom (streamlit_components.kpi_card) — stile identico
+       a st.metric ma con controllo garantito sull'altezza in riga
+       tramite placeholder invisibile del delta.
+    H) Callout (streamlit_components.callout) — stile FT/Bloomberg:
+       border-left colorato + background pastello + tipografia coerente.
+       Sostituisce st.info/warning/success/error nelle pagine.
 
     Non modifica nulla che sia già gestito da:
     - `.streamlit/config.toml`  →  colori base, font, radius dei widget
@@ -377,6 +383,107 @@ def inject_css() -> None:
         .pt-nav-item.active svg {
             color: #0F4C81;
         }
+        
+        /* ==== G) KPI card custom (streamlit_components.kpi_card) =========== */
+        /* Container: stesso look di st.metric ma con controllo garantito
+           sull'altezza in riga tramite il placeholder invisibile del delta. */
+        .pt-kpi {
+            background-color: #F8FAFC;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 0.5rem;
+        }
+        .pt-kpi-label {
+            font-size: 12px;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 500;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .pt-kpi-help {
+            font-size: 13px;
+            color: #94A3B8;
+            cursor: help;
+            font-weight: 400;
+        }
+        .pt-kpi-value {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: 'tnum';
+            font-size: 24px;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+            color: #0F172A;
+            line-height: 1.15;
+        }
+        .pt-kpi-delta {
+            margin-top: 6px;
+            display: inline-block;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        .pt-kpi-delta--positive { background: #DCFCE7; color: #166534; }
+        .pt-kpi-delta--negative { background: #FEE2E2; color: #991B1B; }
+        .pt-kpi-delta--neutral  { background: #E2E8F0; color: #475569; }
+        /* Placeholder: invisibile ma occupa lo stesso spazio del delta.
+           visibility:hidden (non display:none) mantiene il layout. */
+        .pt-kpi-delta--placeholder { visibility: hidden; }
+
+        /* ==== H) Callout (streamlit_components.callout) ==================== */
+        /* Stile FT/Bloomberg: border-left colorato + background pastello.
+           No border-radius perché single-sided borders non si arrotondano. */
+        .pt-callout {
+            padding: 12px 16px;
+            border-radius: 0;
+            margin: 0.5rem 0 1rem;
+        }
+        .pt-callout-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 500;
+            margin: 0 0 6px;
+        }
+        .pt-callout-body {
+            font-size: 13px;
+            color: #0F172A;
+            line-height: 1.55;
+            margin: 0;
+        }
+        .pt-callout-body strong { font-weight: 500; }
+
+        .pt-callout--info {
+            background: #EFF6FF;
+            border-left: 3px solid #0F4C81;
+        }
+        .pt-callout--info .pt-callout-title { color: #0F4C81; }
+
+        .pt-callout--warning {
+            background: #FEF9C3;
+            border-left: 3px solid #A16207;
+        }
+        .pt-callout--warning .pt-callout-title { color: #854D0E; }
+
+        .pt-callout--success {
+            background: #DCFCE7;
+            border-left: 3px solid #15803D;
+        }
+        .pt-callout--success .pt-callout-title { color: #166534; }
+
+        .pt-callout--danger {
+            background: #FEE2E2;
+            border-left: 3px solid #B91C1C;
+        }
+        .pt-callout--danger .pt-callout-title { color: #991B1B; }
+                           
         </style>
     """).strip()
 

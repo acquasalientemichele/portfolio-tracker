@@ -24,6 +24,7 @@ import portfolio as pf
 import risk as rk
 import chart_style as cs
 from streamlit_utils import ensure_data_loaded, render_sidebar, fetch_prices, inject_css
+from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
@@ -89,23 +90,23 @@ period_days = metrics["period_days"]
 period_years = metrics["period_years"]
 
 CONFIDENCE_CONFIG = {
-    "VERY_LOW": ("error",   "🔴 Affidabilità MOLTO BASSA",
+    "VERY_LOW": ("danger",  "Affidabilità molto bassa",
                  "le metriche annualizzate su < 6 mesi di storia sono "
                  "essenzialmente rumore"),
-    "LOW":      ("warning", "🟡 Affidabilità BASSA",
+    "LOW":      ("warning", "Affidabilità bassa",
                  "su < 1 anno di storia, l'annualizzazione tende a "
                  "sovrastimare la performance attesa"),
-    "MEDIUM":   ("info",    "🔵 Affidabilità MEDIA",
+    "MEDIUM":   ("info",    "Affidabilità media",
                  "su 1-3 anni di storia, le metriche cominciano a essere "
                  "indicative ma con ampi intervalli di confidenza"),
-    "HIGH":     ("success", "🟢 Affidabilità ALTA",
+    "HIGH":     ("success", "Affidabilità alta",
                  "con > 3 anni di storia, le metriche sono statisticamente "
                  "informative"),
 }
 
-level, title, descr = CONFIDENCE_CONFIG[conf]
-msg = f"**{title}** — {period_days} giorni di storia ({period_years} anni): {descr}."
-getattr(st, level)(msg)
+kind, title, descr = CONFIDENCE_CONFIG[conf]
+body = f"{period_days} giorni di storia ({period_years} anni): {descr}."
+callout(body, kind=kind, title=title)
 
 st.divider()
 
