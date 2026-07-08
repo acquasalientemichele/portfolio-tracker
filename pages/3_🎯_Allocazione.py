@@ -19,6 +19,7 @@ import portfolio as pf
 import chart_style as cs
 from rebalance import DEFAULT_THRESHOLD
 from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
+from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
@@ -73,16 +74,22 @@ max_dev = float(alloc["abs_deviation"].max()) if len(alloc) else 0.0
 n_off = int(alloc["off_threshold"].sum())
 
 col1, col2, col3 = st.columns(3)
-col1.metric(
-    "Max scostamento",
-    f"{max_dev:.2%}",
-    delta=f"soglia {threshold:.0%}",
-    delta_color="inverse" if max_dev > threshold else "normal",
-)
-col2.metric("Ticker fuori soglia", f"{n_off}/{len(alloc)}")
-col3.metric("Threshold", f"{threshold:.1%}",
-            help="Soglia di scostamento sopra cui considerare il ribilanciamento. "
-                 "Valore configurato in rebalance.DEFAULT_THRESHOLD.")
+with col1:
+    kpi_card(
+        "Max scostamento",
+        f"{max_dev:.2%}",
+        delta=f"soglia {threshold:.0%}",
+        delta_kind="negative" if max_dev > threshold else "positive",
+    )
+with col2:
+    kpi_card("Ticker fuori soglia", f"{n_off}/{len(alloc)}")
+with col3:
+    kpi_card(
+        "Threshold",
+        f"{threshold:.1%}",
+        help="Soglia di scostamento sopra cui considerare il ribilanciamento. "
+             "Valore configurato in rebalance.DEFAULT_THRESHOLD.",
+    )
 
 # --------------------------------------------------------------------------- #
 # ALERT DINAMICO
@@ -90,13 +97,17 @@ col3.metric("Threshold", f"{threshold:.1%}",
 if n_off > 0:
     off_list = alloc[alloc["off_threshold"]].sort_values("abs_deviation", ascending=False)
     tickers_off = ", ".join(off_list.index)
-    st.warning(
-        f"⚠️ **{n_off} ticker fuori soglia**: {tickers_off}. "
-        f"La pagina **Ribilanciamento** (in arrivo) suggerirà come "
-        f"correggere lo scostamento con il prossimo versamento."
+    callout(
+        f"<strong>{n_off} ticker fuori soglia</strong>: {tickers_off}. "
+        f"La pagina <strong>Ribilanciamento</strong> (in arrivo) suggerirà come "
+        f"correggere lo scostamento con il prossimo versamento.",
+        kind="warning",
     )
 else:
-    st.success("✅ Tutti i ticker sono entro la soglia di tolleranza.")
+    callout(
+        "Tutti i ticker sono entro la soglia di tolleranza.",
+        kind="success",
+    )
 
 st.divider()
 
