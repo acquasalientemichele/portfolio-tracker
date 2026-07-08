@@ -20,6 +20,7 @@ import portfolio as pf
 import costs as cst
 import chart_style as cs
 from streamlit_utils import ensure_data_loaded, render_sidebar, fetch_prices, inject_css
+from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
@@ -76,24 +77,28 @@ st.caption(
 )
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("TWR lordo", f"{ret_p:+.2f}%")
-col2.metric(
-    "TWR netto bollo",
-    f"{ret_pn:+.2f}%",
-    delta=f"−{drag_pp:.2f}pp drag",
-    delta_color="inverse",
-    help="Performance del portafoglio dopo aver detratto il bollo "
-         "modellato (0,2% annuo sul valore giornaliero).",
-)
-col3.metric(f"Benchmark ({benchmark_ticker})", f"{ret_b:+.2f}%")
-col4.metric(
-    "Alpha vs benchmark",
-    f"{alpha_vs_bench:+.2f}pp",
-    delta=("Outperformance" if alpha_vs_bench > 0 else "Underperformance"),
-    delta_color="normal" if alpha_vs_bench >= 0 else "inverse",
-    help="Differenza in punti percentuali tra TWR lordo del portafoglio "
-         "e rendimento del benchmark.",
-)
+with col1:
+    kpi_card("TWR lordo", f"{ret_p:+.2f}%")
+with col2:
+    kpi_card(
+        "TWR netto bollo",
+        f"{ret_pn:+.2f}%",
+        delta=f"−{drag_pp:.2f}pp drag",
+        delta_kind="negative",
+        help="Performance del portafoglio dopo aver detratto il bollo "
+             "modellato (0,2% annuo sul valore giornaliero).",
+    )
+with col3:
+    kpi_card(f"Benchmark ({benchmark_ticker})", f"{ret_b:+.2f}%")
+with col4:
+    kpi_card(
+        "Alpha vs benchmark",
+        f"{alpha_vs_bench:+.2f}pp",
+        delta="Outperformance" if alpha_vs_bench > 0 else "Underperformance",
+        delta_kind="positive" if alpha_vs_bench >= 0 else "negative",
+        help="Differenza in punti percentuali tra TWR lordo del portafoglio "
+             "e rendimento del benchmark.",
+    )
 
 # --------------------------------------------------------------------------- #
 # INTERPRETAZIONE
@@ -101,21 +106,31 @@ col4.metric(
 # Messaggio dinamico basato sull'alpha
 if benchmark_ticker in set(tx["ticker"].unique()):
     # Caso comune: benchmark coincide con uno degli ETF in portafoglio
-    st.info(
-        f"ℹ️ Il benchmark **{benchmark_ticker}** è anche uno degli ETF nel tuo "
-        f"portafoglio. È normale che la performance del portafoglio sia molto "
-        f"vicina a quella del benchmark — la differenza è generata dal peso "
-        f"degli altri ETF e dalle date dei versamenti."
+    callout(
+        f"Il benchmark <strong>{benchmark_ticker}</strong> è anche uno degli ETF "
+        f"nel tuo portafoglio. È normale che la performance del portafoglio sia "
+        f"molto vicina a quella del benchmark — la differenza è generata dal peso "
+        f"degli altri ETF e dalle date dei versamenti.",
+        kind="info",
     )
 elif abs(alpha_vs_bench) < 0.5:
-    st.info(f"📊 La performance del portafoglio è sostanzialmente in linea "
-            f"con il benchmark (spread {alpha_vs_bench:+.2f}pp).")
+    callout(
+        f"La performance del portafoglio è sostanzialmente in linea con il "
+        f"benchmark (spread {alpha_vs_bench:+.2f}pp).",
+        kind="info",
+    )
 elif alpha_vs_bench > 0:
-    st.success(f"✅ Il portafoglio sovraperforma il benchmark di "
-               f"**{alpha_vs_bench:+.2f}pp** (TWR lordo).")
+    callout(
+        f"Il portafoglio sovraperforma il benchmark di "
+        f"<strong>{alpha_vs_bench:+.2f}pp</strong> (TWR lordo).",
+        kind="success",
+    )
 else:
-    st.warning(f"⚠️ Il portafoglio sottoperforma il benchmark di "
-               f"**{alpha_vs_bench:.2f}pp** (TWR lordo).")
+    callout(
+        f"Il portafoglio sottoperforma il benchmark di "
+        f"<strong>{alpha_vs_bench:.2f}pp</strong> (TWR lordo).",
+        kind="warning",
+    )
 
 st.divider()
 
