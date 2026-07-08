@@ -21,6 +21,7 @@ import portfolio as pf
 import costs as cst
 import chart_style as cs
 from streamlit_utils import ensure_data_loaded, render_sidebar, TX_FILE, inject_css
+from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
@@ -70,34 +71,40 @@ st.caption(
 
 # 4 metriche di sintesi
 col1, col2, col3, col4 = st.columns(4)
-col1.metric(
-    "P&L lordo",
-    f"{summary['pnl_lordo']:+,.2f} €",
-    delta=f"{summary['pnl_lordo_pct']:+.2%}",
-)
-col2.metric(
-    "Costi cash",
-    f"−{summary['cash_costs']:,.2f} €",
-    delta=f"di cui {summary['fees_total']:,.2f} comm. + "
-          f"{summary['bollo_model']:,.2f} bollo",
-    delta_color="off",
-    help="Commissioni TR (effettive) + bollo modellato (0,2% annuo).",
-)
-col3.metric(
-    "Tax simulata (26%)",
-    f"−{summary['cap_gain_tax']:,.2f} €",
-    delta="se vendi oggi",
-    delta_color="off",
-    help="Stima dell'imposta sulle plusvalenze in caso di liquidazione "
-         "totale del portafoglio. Per ETF armonizzati: 26% sulla plusvalenza "
-         "netta (le minusvalenze di una posizione compensano le plusvalenze "
-         "di un'altra).",
-)
-col4.metric(
-    "P&L netto netto",
-    f"{summary['pnl_net_net']:+,.2f} €",
-    delta=f"{summary['pnl_net_net_pct']:+.2%}",
-)
+with col1:
+    kpi_card(
+        "P&L lordo",
+        f"{summary['pnl_lordo']:+,.2f} €",
+        delta=f"{summary['pnl_lordo_pct']:+.2%}",
+        delta_kind="positive" if summary['pnl_lordo'] >= 0 else "negative",
+    )
+with col2:
+    kpi_card(
+        "Costi cash",
+        f"−{summary['cash_costs']:,.2f} €",
+        delta=f" {summary['fees_total']:,.2f} comm. + "
+              f"{summary['bollo_model']:,.2f} bollo",
+        delta_kind="neutral",
+        help="Commissioni TR (effettive) + bollo modellato (0,2% annuo).",
+    )
+with col3:
+    kpi_card(
+        "Tax simulata (26%)",
+        f"−{summary['cap_gain_tax']:,.2f} €",
+        delta="se vendi oggi",
+        delta_kind="neutral",
+        help="Stima dell'imposta sulle plusvalenze in caso di liquidazione "
+             "totale del portafoglio. Per ETF armonizzati: 26% sulla plusvalenza "
+             "netta (le minusvalenze di una posizione compensano le plusvalenze "
+             "di un'altra).",
+    )
+with col4:
+    kpi_card(
+        "P&L netto netto",
+        f"{summary['pnl_net_net']:+,.2f} €",
+        delta=f"{summary['pnl_net_net_pct']:+.2%}",
+        delta_kind="positive" if summary['pnl_net_net'] >= 0 else "negative",
+    )
 
 st.divider()
 
@@ -289,11 +296,11 @@ if len(bollo_real_df) > 0:
         delta_abs = summary["bollo_model"] - summary["bollo_real"]
         delta_pct = (delta_abs / summary["bollo_real"]
                      if summary["bollo_real"] else 0)
-        st.metric(
+        kpi_card(
             "Differenza modello − reale",
             f"€{delta_abs:+,.2f}",
             delta=f"{delta_pct:+.1%}" if summary["bollo_real"] else None,
-            delta_color="off",
+            delta_kind="neutral",
         )
         st.markdown(
             f"**Addebiti registrati**: {len(bollo_real_df)}  \n"
@@ -318,11 +325,13 @@ if len(bollo_real_df) > 0:
             },
         )
 else:
-    st.info(
-        "ℹ️ Non sono stati registrati addebiti reali del bollo. "
-        "Per popolare questo confronto, aggiungi un foglio `bollo_charges` "
-        "al file Excel con colonne `date`, `amount`, `notes` e inserisci "
-        "gli addebiti trimestrali di TR."
+    callout(
+        "Non sono stati registrati addebiti reali del bollo. "
+        "Per popolare questo confronto, aggiungi un foglio "
+        "<strong>bollo_charges</strong> al file Excel con colonne "
+        "<strong>date</strong>, <strong>amount</strong>, <strong>notes</strong> "
+        "e inserisci gli addebiti trimestrali di TR.",
+        kind="info",
     )
 
 st.divider()
@@ -336,23 +345,24 @@ if costs_cfg["ter"]:
     tcol1, tcol2 = st.columns([1, 2])
 
     with tcol1:
-        st.metric(
+        kpi_card(
             "TER pesato annuo",
             f"{summary['ter_weighted']*100:.3f}%",
             delta=f"≈ {summary['ter_annual_eur']:,.2f} €/anno",
-            delta_color="off",
+            delta_kind="neutral",
             help="Media pesata sui pesi correnti del portafoglio. "
                  "Il valore in euro è una stima sul valore di mercato attuale.",
         )
 
     with tcol2:
-        st.info(
-            "⚠️ Il TER **non viene sottratto** dal P&L perché è già scontato "
-            "dal NAV giornaliero degli ETF (per ETF accumulating come VWCE/VFEA "
-            "i prezzi yfinance riflettono già il NAV post-TER). Sottrarlo "
-            "nuovamente sarebbe double counting. È mostrato qui solo a fini "
-            "informativi, per dare visibilità di un costo strutturalmente "
-            "invisibile."
+        callout(
+            "Il <strong>TER non viene sottratto</strong> dal P&L perché è già "
+            "scontato dal NAV giornaliero degli ETF (per ETF accumulating come "
+            "VWCE/VFEA i prezzi yfinance riflettono già il NAV post-TER). "
+            "Sottrarlo nuovamente sarebbe double counting. È mostrato qui solo "
+            "a fini informativi, per dare visibilità di un costo strutturalmente "
+            "invisibile.",
+            kind="info",
         )
 
     # Tabella TER per ticker
@@ -375,10 +385,13 @@ if costs_cfg["ter"]:
         },
     )
 else:
-    st.info(
-        "ℹ️ Non è stato configurato il TER degli ETF. "
-        "Per popolare questa sezione, aggiungi un foglio `ter` al file Excel "
-        "con colonne `ticker`, `ter_annual`, `note` (es. VWCE.DE → 0.0022 per 0,22%)."
+    callout(
+        "Non è stato configurato il TER degli ETF. "
+        "Per popolare questa sezione, aggiungi un foglio <strong>ter</strong> "
+        "al file Excel con colonne <strong>ticker</strong>, "
+        "<strong>ter_annual</strong>, <strong>note</strong> "
+        "(es. VWCE.DE → 0.0022 per 0,22%).",
+        kind="info",
     )
 
 # --------------------------------------------------------------------------- #
