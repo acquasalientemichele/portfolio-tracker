@@ -16,6 +16,7 @@ from matplotlib.ticker import FuncFormatter
 import portfolio as pf
 import chart_style as cs
 from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
+from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
@@ -61,29 +62,34 @@ days = compare["days"]
 short = compare["is_short_period"]
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("TWR cumulato", f"{twr_cum_pct:+.2%}")
-col2.metric(
-    "TWR annualizzato",
-    f"{twr_ann:+.2%}" if twr_ann is not None else "—",
-    help="Rendimento annuo composto equivalente del TWR. "
-         "Su periodi < 1 anno tende a sovrastimare la performance attesa.",
-)
-col3.metric(
-    "MWR (IRR) annualizzato",
-    f"{mwr_ann:+.2%}" if mwr_ann is not None else "—",
-    help="Tasso di rendimento interno dei flussi di cassa. "
-         "Risente del timing dei versamenti.",
-)
-col4.metric(
-    "Spread MWR − TWR",
-    f"{spread:+.2%}" if spread is not None else "—",
-    help="Misura quanto il timing ha aiutato (>0) o penalizzato (<0).",
-)
+with col1:
+    kpi_card("TWR cumulato", f"{twr_cum_pct:+.2%}")
+with col2:
+    kpi_card(
+        "TWR annualizzato",
+        f"{twr_ann:+.2%}" if twr_ann is not None else "—",
+        help="Rendimento annuo composto equivalente del TWR. "
+             "Su periodi < 1 anno tende a sovrastimare la performance attesa.",
+    )
+with col3:
+    kpi_card(
+        "MWR (IRR) annualizzato",
+        f"{mwr_ann:+.2%}" if mwr_ann is not None else "—",
+        help="Tasso di rendimento interno dei flussi di cassa. "
+             "Risente del timing dei versamenti.",
+    )
+with col4:
+    kpi_card(
+        "Spread MWR − TWR",
+        f"{spread:+.2%}" if spread is not None else "—",
+        help="Misura quanto il timing ha aiutato (>0) o penalizzato (<0).",
+    )
 
 if short and days is not None:
-    st.caption(
-        f"⚠️ Periodo di storia: **{days} giorni** (< 1 anno). "
-        f"I valori annualizzati vanno letti con prudenza."
+    callout(
+        f"Periodo di storia: <strong>{days} giorni</strong> (< 1 anno). "
+        f"I valori annualizzati vanno letti con prudenza.",
+        kind="warning",
     )
 
 st.divider()
@@ -141,15 +147,16 @@ st.pyplot(fig, use_container_width=True)
 st.subheader("Interpretazione")
 
 # `compare_twr_mwr` ha già generato il testo interpretativo, compreso il
-# caveat sull'annualizzazione su periodi brevi. Lo mostriamo come info box.
-if spread is None:
-    st.info(compare["interpretation"])
-elif abs(spread) < 0.005:
-    st.info("📊 " + compare["interpretation"])
+# caveat sull'annualizzazione su periodi brevi. Il kind del callout è
+# ricavato dal segno dello spread: neutrale se piccolo, success se positivo
+# (timing favorevole), warning se negativo (timing sfavorevole).
+if spread is None or abs(spread) < 0.005:
+    kind = "info"
 elif spread > 0:
-    st.success("✅ " + compare["interpretation"])
+    kind = "success"
 else:
-    st.warning("⚠️ " + compare["interpretation"])
+    kind = "warning"
+callout(compare["interpretation"], kind=kind)
 
 with st.expander("ℹ️ Differenza TWR vs MWR — promemoria"):
     st.markdown(
@@ -191,9 +198,12 @@ n_buy = int((cf["operation"] == "BUY").sum())
 n_sell = int((cf["operation"] == "SELL").sum())
 
 ccol1, ccol2, ccol3 = st.columns(3)
-ccol1.metric("Capitale investito netto", f"{tot_invested_net:,.2f} €")
-ccol2.metric("N° acquisti", f"{n_buy}")
-ccol3.metric("N° vendite", f"{n_sell}")
+with ccol1:
+    kpi_card("Capitale investito netto", f"{tot_invested_net:,.2f} €")
+with ccol2:
+    kpi_card("N° acquisti", f"{n_buy}")
+with ccol3:
+    kpi_card("N° vendite", f"{n_sell}")
 
 # Tabella operazioni
 view = cf[["date", "operation", "ticker", "quantity", "price",
