@@ -18,6 +18,7 @@ import streamlit as st
 import portfolio as pf
 import chart_style as cs
 from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
+from streamlit_components import kpi_card
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
@@ -49,10 +50,14 @@ st.title("Andamento del valore")
 st.caption("Valore di mercato del portafoglio vs capitale investito cumulato")
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Valore corrente", f"{last_v:,.2f} €")
-col2.metric("Capitale investito", f"{last_i:,.2f} €")
-col3.metric("P&L €", f"{pnl:+,.2f} €")
-col4.metric("P&L %", f"{pnl_pct:+.2%}")
+with col1:
+    kpi_card("Valore corrente", f"{last_v:,.2f} €")
+with col2:
+    kpi_card("Capitale investito", f"{last_i:,.2f} €")
+with col3:
+    kpi_card("P&L €", f"{pnl:+,.2f} €")
+with col4:
+    kpi_card("P&L %", f"{pnl_pct:+.2%}")
 
 st.divider()
 
@@ -138,9 +143,9 @@ with st.expander("ℹ️ Come leggere il grafico"):
 
         Questo grafico mostra il **P&L in valore assoluto**, non il rendimento
         percentuale. Per le metriche di performance percentuali vedi la pagina
-        **📈 Performance** (TWR e MWR).
+        **Performance** (TWR e MWR).
 
         Il valore di mercato è **al lordo** di bollo e imposta sulle plusvalenze:
-        per il riepilogo netto vedi la pagina **Costi e fiscalità** (in arrivo).
+        per il riepilogo netto vedi la pagina **Costi e fiscalità**.
         """
     )

@@ -15,6 +15,7 @@ import streamlit as st
 
 import portfolio as pf
 from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
+from streamlit_components import kpi_card
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
@@ -49,10 +50,19 @@ pnl_eur = market_value - invested
 pnl_pct = pnl_eur / invested if invested else 0.0
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Capitale investito", f"{invested:,.2f} €")
-col2.metric("Valore di mercato", f"{market_value:,.2f} €")
-col3.metric("P&L", f"{pnl_eur:+,.2f} €", delta=f"{pnl_pct:+.2%}")
-col4.metric("N° posizioni", f"{len(holdings_valued)}")
+with col1:
+    kpi_card("Capitale investito", f"{invested:,.2f} €")
+with col2:
+    kpi_card("Valore di mercato", f"{market_value:,.2f} €")
+with col3:
+    kpi_card(
+        "P&L",
+        f"{pnl_eur:+,.2f} €",
+        delta=f"{pnl_pct:+.2%}",
+        delta_kind="positive" if pnl_eur >= 0 else "negative",
+    )
+with col4:
+    kpi_card("N° posizioni", f"{len(holdings_valued)}")
 
 st.divider()
 
@@ -100,5 +110,4 @@ st.dataframe(
 st.caption(
     f"📅 Ultimo prezzo disponibile: {prices.index[-1]:%d/%m/%Y}  ·  "
     f"il P&L è al lordo di bollo e imposta sulle plusvalenze "
-    f"(vedi pagina **Costi e fiscalità**, in arrivo)"
 )
