@@ -9,12 +9,11 @@ Mappa la sezione 5 del notebook: stessa logica, presentazione web.
 """
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import streamlit as st
-from matplotlib.ticker import FuncFormatter
 
 import portfolio as pf
-import chart_style as cs
+import plotly_style as ps
 from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
 from streamlit_components import kpi_card, callout
 
@@ -27,9 +26,6 @@ inject_css()
 
 tx, prices, _ = ensure_data_loaded()
 render_sidebar(current_page="performance")
-
-# Applichiamo lo stile globale matplotlib una volta per pagina (rcParams)
-cs.apply_global_style()
 
 # --------------------------------------------------------------------------- #
 # CALCOLI
@@ -95,51 +91,70 @@ if short and days is not None:
 st.divider()
 
 # --------------------------------------------------------------------------- #
-# GRAFICO TWR CUMULATO
+# GRAFICO TWR CUMULATO (Plotly interattivo)
 # --------------------------------------------------------------------------- #
 st.subheader("TWR cumulato")
 
-fig, ax = plt.subplots(figsize=(12, 4.5))
+# Trasformo il cumulato (1.0 → 1.08) in rendimento frazione (0 → 0.08).
+# Plotly con y_format="percent" moltiplica × 100 per la visualizzazione.
+ret = twr_cum - 1.0
 
-# Trasformo il cumulato (1.0 → 1.08) in rendimento % (0 → 8)
-ret_pct = (twr_cum - 1.0) * 100
+fig = go.Figure()
 
-# Linea principale + area shaded per profondità visiva
-ax.plot(twr_cum.index, ret_pct, color=cs.COLORS["value"],
-        linewidth=2.0, label="TWR cumulato")
-ax.fill_between(twr_cum.index, 0, ret_pct,
-                where=(ret_pct >= 0), color=cs.COLORS["value"],
-                alpha=0.10, interpolate=True)
-ax.fill_between(twr_cum.index, 0, ret_pct,
-                where=(ret_pct < 0), color=cs.COLORS["loss"],
-                alpha=0.10, interpolate=True)
-ax.axhline(0, color=cs.COLORS["muted"], linewidth=0.8,
-           linestyle="--", alpha=0.5)
+# Linea principale TWR
+fig.add_trace(go.Scatter(
+    x=twr_cum.index,
+    y=ret.values,
+    name="TWR cumulato",
+    line=dict(color=ps.COLORS["value"], width=2.0),
+    mode="lines",
+    hovertemplate="<b>%{y:+.2%}</b><extra></extra>",
+))
 
-# Annotazione sull'ultimo valore: aggancia un'etichetta numerica al cursore
-last_x = twr_cum.index[-1]
-last_y = float(ret_pct.iloc[-1])
-ax.annotate(
-    f"{last_y:+.2f}%",
-    xy=(last_x, last_y),
-    xytext=(8, 0), textcoords="offset points",
-    color=cs.COLORS["value"], fontweight="bold", va="center", fontsize=10,
+# Area shading: navy tenue quando ret > 0, rosso tenue quando ret < 0.
+# color_positive="value" (navy) invece del default gain (verde) per
+# fedeltà al design matplotlib originale.
+ps.add_area_shading(
+    fig, twr_cum.index, ret.values,
+    split_at=0,
+    color_positive=ps.COLORS["value"],
+    color_negative=ps.COLORS["loss"],
+    alpha=0.10,
 )
 
-cs.style_axis(ax, euro=False, date_axis=True)
-# Formatto l'asse Y in percentuali (non in euro)
-ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:+.1f}%"))
-ax.set_ylabel("")  # ridondante con il formatter
+# Linea orizzontale a 0 (riferimento visivo)
+fig.add_hline(
+    y=0,
+    line=dict(color=ps.COLORS["muted"], width=0.8, dash="dash"),
+    opacity=0.5,
+)
 
-cs.add_title(
+# Marker cerchietto sul valore finale (visual anchor per l'annotation)
+last_x = twr_cum.index[-1]
+last_y = float(ret.iloc[-1])
+fig.add_trace(go.Scatter(
+    x=[last_x], y=[last_y],
+    mode="markers",
+    marker=dict(color=ps.COLORS["value"], size=8),
+    showlegend=False,
+    hoverinfo="skip",
+))
+
+# Assi + hover unificato + endline annotation
+ps.style_axes(fig, y_format="percent", x_is_date=True)
+ps.hover_unified(fig)
+ps.add_endline_annotations(fig, [
+    {"y": last_y, "text": f"{last_y:+.2%}", "color": ps.COLORS["value"]},
+])
+ps.apply_layout(
     fig,
-    "Time-Weighted Return",
+    title="Time-Weighted Return",
     subtitle="Rendimento cumulato lordo degli strumenti, "
              "indipendente dal timing dei versamenti",
     source="Fonte: Yahoo Finance · elaborazione portfolio.py",
 )
 
-st.pyplot(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True, config=ps.PLOTLY_CONFIG)
 
 # --------------------------------------------------------------------------- #
 # INTERPRETAZIONE
