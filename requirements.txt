@@ -4,5 +4,6 @@ yfinance>=0.2.40
 openpyxl>=3.1
 pyarrow>=14.0
 matplotlib>=3.7
+plotly>=5.20
 jupyter>=1.0
 streamlit>=1.40
