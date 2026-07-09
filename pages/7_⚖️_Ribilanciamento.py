@@ -25,6 +25,7 @@ from rebalance import (
     PROJECTION_TARGET_BAND,
 )
 from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
+from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
@@ -57,10 +58,11 @@ st.caption(
 )
 
 if not target:
-    st.error(
-        "❌ **Target allocation non configurata.** "
-        "Aggiungi i pesi target nel foglio `settings` del file Excel "
-        "(formato: `ticker | target_weight`, somma = 1.0)."
+    callout(
+        "<strong>Target allocation non configurata.</strong> "
+        "Aggiungi i pesi target nel foglio <strong>settings</strong> del "
+        "file Excel (formato: <strong>ticker | target_weight</strong>, somma = 1.0).",
+        kind="danger",
     )
     st.stop()
 
@@ -78,13 +80,17 @@ n_off = sum(1 for d in deviations.values() if abs(d) > DEFAULT_THRESHOLD)
 total_value = float(holdings_valued["market_value"].sum())
 
 scol1, scol2, scol3 = st.columns(3)
-scol1.metric("Valore portafoglio", f"{total_value:,.2f} €")
-scol2.metric(
-    "Max scostamento attuale", f"{max_dev_now:.2%}",
-    delta=f"soglia {DEFAULT_THRESHOLD:.0%}",
-    delta_color="inverse" if max_dev_now > DEFAULT_THRESHOLD else "normal",
-)
-scol3.metric("Ticker fuori soglia", f"{n_off}/{len(all_tickers)}")
+with scol1:
+    kpi_card("Valore portafoglio", f"{total_value:,.2f} €")
+with scol2:
+    kpi_card(
+        "Max scostamento attuale",
+        f"{max_dev_now:.2%}",
+        delta=f"soglia {DEFAULT_THRESHOLD:.0%}",
+        delta_kind="negative" if max_dev_now > DEFAULT_THRESHOLD else "positive",
+    )
+with scol3:
+    kpi_card("Ticker fuori soglia", f"{n_off}/{len(all_tickers)}")
 
 st.divider()
 
@@ -93,7 +99,7 @@ st.divider()
 # --------------------------------------------------------------------------- #
 st.subheader("Parametri del versamento")
 
-icol1, icol2 = st.columns([2, 1])
+icol1, icol2 = st.columns([3, 1])
 with icol1:
     new_cash = st.number_input(
         "Importo netto da investire (€)",
@@ -106,7 +112,10 @@ with icol1:
     )
 
 with icol2:
-    with st.expander("⚙️ Parametri avanzati"):
+    # Spacer per allineare il bottone popover all'altezza del campo input
+    # a sinistra (compensa l'altezza della label del number_input, ~28px).
+    st.markdown("<div style='height: 1.75rem'></div>", unsafe_allow_html=True)
+    with st.popover("⚙️ Parametri avanzati", use_container_width=True):
         threshold = st.slider(
             "Soglia di tolleranza (%)",
             min_value=0.5, max_value=5.0,
@@ -134,31 +143,36 @@ st.subheader(f"Suggerimento per PAC di {new_cash:,.2f} €")
 
 # Caso edge: cash insufficiente
 if rec["summary"]["n_orders"] == 0:
-    st.error(f"⚠️ {rec['message']}")
+    callout(rec['message'], kind="danger")
 else:
-    # Messaggio testuale dal modulo
-    if rec["summary"]["n_orders"] == 1:
-        st.success(f"✅ {rec['message']}")
-    else:
-        st.info(f"📊 {rec['message']}")
+    # Kind dinamico: success se 1 ordine (situazione ottimale, single-buy),
+    # info se 2+ ordini (split necessario, comportamento nominale).
+    kind = "success" if rec["summary"]["n_orders"] == 1 else "info"
+    callout(rec['message'], kind=kind)
 
     # 4 metriche di sintesi
     s = rec["summary"]
     mcol1, mcol2, mcol3, mcol4 = st.columns(4)
-    mcol1.metric("Cash investito", f"{s['cash_invested']:,.2f} €")
-    mcol2.metric(
-        "Commissioni",
-        f"{s['fees_total']:,.2f} €",
-        delta=f"{s['n_orders']} ordine/i",
-        delta_color="off",
-    )
-    mcol3.metric("Totale uscita conto", f"{s['cash_input']:,.2f} €")
-    mcol4.metric(
-        "Max deviazione post",
-        f"{s['max_deviation_post']:.2%}",
-        delta=f"{(s['max_deviation_post'] - max_dev_now)*100:+.2f}pp vs attuale",
-        delta_color="inverse",  # un valore minore è meglio
-    )
+    with mcol1:
+        kpi_card("Cash investito", f"{s['cash_invested']:,.2f} €")
+    with mcol2:
+        kpi_card(
+            "Commissioni",
+            f"{s['fees_total']:,.2f} €",
+            delta=f"{s['n_orders']} ordine/i",
+            delta_kind="neutral",
+        )
+    with mcol3:
+        kpi_card("Totale uscita conto", f"{s['cash_input']:,.2f} €")
+    with mcol4:
+        # Deviazione minore è meglio: se scende → positive, se sale → negative
+        dev_delta = s['max_deviation_post'] - max_dev_now
+        kpi_card(
+            "Max deviazione post",
+            f"{s['max_deviation_post']:.2%}",
+            delta=f"{dev_delta*100:+.2f}pp vs attuale",
+            delta_kind="positive" if dev_delta < 0 else "negative",
+        )
 
     # Tabella ordini
     st.markdown("##### Ordini da eseguire")
@@ -226,40 +240,52 @@ months_to_target = proj["months_to_target"]
 pcol1, pcol2 = st.columns([1, 3])
 with pcol1:
     if converged and months_to_target == 0:
-        st.metric("Già a target", "✅", help="La deviazione massima è già "
-                  f"sotto {PROJECTION_TARGET_BAND:.1%}.")
+        kpi_card(
+            "Già a target",
+            "✅",
+            help=f"La deviazione massima è già sotto {PROJECTION_TARGET_BAND:.1%}.",
+        )
     elif converged:
-        st.metric("Mesi alla convergenza", f"{months_to_target}",
-                  delta=f"banda ±{PROJECTION_TARGET_BAND:.1%}",
-                  delta_color="off")
+        kpi_card(
+            "Mesi alla convergenza",
+            f"{months_to_target}",
+            delta=f"banda ±{PROJECTION_TARGET_BAND:.1%}",
+            delta_kind="neutral",
+        )
     else:
         final_dev = proj.get("final_max_dev", max_dev_now)
-        st.metric("Non converge in 60 mesi", "—",
-                  delta=f"dev finale: {final_dev:.2%}",
-                  delta_color="inverse")
+        kpi_card(
+            "Non converge in 60 mesi",
+            "—",
+            delta=f"dev finale: {final_dev:.2%}",
+            delta_kind="negative",
+        )
 
 with pcol2:
     if converged and months_to_target == 0:
-        st.success(
-            f"✅ Il portafoglio è già entro la banda di "
+        callout(
+            f"Il portafoglio è già entro la banda di "
             f"{PROJECTION_TARGET_BAND:.1%} dal target. Nessuna azione "
-            f"correttiva necessaria."
+            f"correttiva necessaria.",
+            kind="success",
         )
     elif converged:
-        st.info(
-            f"ℹ️ Continuando con un PAC mensile di **{new_cash:,.0f} €**, "
+        callout(
+            f"Continuando con un PAC mensile di <strong>{new_cash:,.0f} €</strong>, "
             f"il portafoglio rientrerà entro la banda di "
-            f"**{PROJECTION_TARGET_BAND:.1%}** dal target in circa "
-            f"**{months_to_target} mesi**. Nessuna vendita necessaria — "
-            f"l'auto-correzione avviene tramite versamenti."
+            f"<strong>{PROJECTION_TARGET_BAND:.1%}</strong> dal target in circa "
+            f"<strong>{months_to_target} mesi</strong>. Nessuna vendita necessaria — "
+            f"l'auto-correzione avviene tramite versamenti.",
+            kind="info",
         )
     else:
-        st.warning(
-            f"⚠️ Con un PAC di {new_cash:,.0f} €, il portafoglio non rientra "
+        callout(
+            f"Con un PAC di {new_cash:,.0f} €, il portafoglio non rientra "
             f"entro la banda di {PROJECTION_TARGET_BAND:.1%} nei prossimi "
             f"60 mesi (deviazione finale: {proj.get('final_max_dev', 0):.2%}). "
             f"Considera un PAC più alto o una vendita parziale (con il drag "
-            f"fiscale del 26% sulle plusvalenze)."
+            f"fiscale del 26% sulle plusvalenze).",
+            kind="warning",
         )
 
 # Grafico convergenza: max deviation nel tempo

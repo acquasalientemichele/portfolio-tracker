@@ -20,6 +20,7 @@ import portfolio as pf
 import montecarlo as mc
 import chart_style as cs
 from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
+from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
@@ -51,9 +52,11 @@ st.caption(
 )
 
 if not target:
-    st.error(
-        "❌ **Target allocation non configurata.** "
-        "La simulazione richiede i pesi target dal foglio `settings` del file Excel."
+    callout(
+        "<strong>Target allocation non configurata.</strong> "
+        "La simulazione richiede i pesi target dal foglio "
+        "<strong>settings</strong> del file Excel.",
+        kind="danger",
     )
     st.stop()
 
@@ -143,8 +146,8 @@ with pcol4:
         help="Anni per cui calcolare i percentili nella tabella. "
              "L'orizzonte massimo determina la lunghezza del fan chart.",
     )
-    if not horizons:
-        st.warning("Seleziona almeno un orizzonte.")
+if not horizons:
+        callout("Seleziona almeno un orizzonte.", kind="warning")
         st.stop()
 
 with pcol5:
@@ -186,7 +189,7 @@ try:
         seed=42,
     )
 except Exception as e:
-    st.error(f"❌ Errore nella simulazione: {e}")
+    callout(f"Errore nella simulazione: {e}", kind="danger")
     st.stop()
 
 cal = result["calibration"]
@@ -204,23 +207,26 @@ st.divider()
 st.subheader("Calibrazione storica")
 
 ccol1, ccol2, ccol3 = st.columns(3)
-ccol1.metric(
-    "Rendimento storico ann.",
-    f"{ann_return:+.2%}",
-    help="Rendimento geometrico annualizzato calcolato sul periodo di lookback.",
-)
-ccol2.metric(
-    "Volatilità storica ann.",
-    f"{ann_vol:.2%}",
-    help="Deviazione standard annualizzata dei rendimenti giornalieri.",
-)
-ccol3.metric(
-    "Storia usata",
-    f"{cal['n_days']:,} giorni",
-    delta=f"{cal['n_days']/252:.1f} anni",
-    delta_color="off",
-    help=f"Periodo: {cal['start_date']:%d/%m/%Y} → {cal['end_date']:%d/%m/%Y}",
-)
+with ccol1:
+    kpi_card(
+        "Rendimento storico ann.",
+        f"{ann_return:+.2%}",
+        help="Rendimento geometrico annualizzato calcolato sul periodo di lookback.",
+    )
+with ccol2:
+    kpi_card(
+        "Volatilità storica ann.",
+        f"{ann_vol:.2%}",
+        help="Deviazione standard annualizzata dei rendimenti giornalieri.",
+    )
+with ccol3:
+    kpi_card(
+        "Storia usata",
+        f"{cal['n_days']:,} giorni",
+        delta=f"{cal['n_days']/252:.1f} anni",
+        delta_kind="neutral",
+        help=f"Periodo: {cal['start_date']:%d/%m/%Y} → {cal['end_date']:%d/%m/%Y}",
+    )
 
 st.divider()
 
@@ -324,14 +330,14 @@ for years in sorted(horizons):
     h = sim["horizons"][years]
     perc = h["percentiles_real"] if use_real else h["percentiles_nominal"]
     rows.append({
-        "Orizzonte": f"{years} anni",
-        "Versato tot.": h["total_contributed"],
-        "5° (worst)": perc[5],
-        "25°": perc[25],
-        "Mediana (50°)": perc[50],
-        "75°": perc[75],
-        "95° (best)": perc[95],
-    })
+    "Orizzonte": f"{years} anni",
+    "Versato tot.": round(h["total_contributed"]),
+    "5° (worst)": round(perc[5]),
+    "25°": round(perc[25]),
+    "Mediana (50°)": round(perc[50]),
+    "75°": round(perc[75]),
+    "95° (best)": round(perc[95]),
+})
 
 df = pd.DataFrame(rows)
 
@@ -340,12 +346,12 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
     column_config={
-        "Versato tot.":   st.column_config.NumberColumn(format="€%.0f"),
-        "5° (worst)":     st.column_config.NumberColumn(format="€%.0f"),
-        "25°":            st.column_config.NumberColumn(format="€%.0f"),
-        "Mediana (50°)":  st.column_config.NumberColumn(format="€%.0f"),
-        "75°":            st.column_config.NumberColumn(format="€%.0f"),
-        "95° (best)":     st.column_config.NumberColumn(format="€%.0f"),
+        "Versato tot.":   st.column_config.NumberColumn(format="euro"),
+        "5° (worst)":     st.column_config.NumberColumn(format="euro"),
+        "25°":            st.column_config.NumberColumn(format="euro"),
+        "Mediana (50°)":  st.column_config.NumberColumn(format="euro"),
+        "75°":            st.column_config.NumberColumn(format="euro"),
+        "95° (best)":     st.column_config.NumberColumn(format="euro"),
     },
 )
 
@@ -382,6 +388,9 @@ with tcol2:
         index=len(sorted(horizons)) // 2,  # default: orizzonte "medio"
     )
 with tcol3:
+    # Spacer per allineare il checkbox all'altezza dei campi input a sinistra
+    # (compensa l'altezza della label del number_input, ~28px).
+    st.markdown("<div style='height: 1.75rem'></div>", unsafe_allow_html=True)
     target_use_real = st.checkbox(
         "Obiettivo in € di oggi (reali)",
         value=False,
@@ -398,37 +407,42 @@ prob = mc.probability_of_target(
 
 # Metric + interpretazione dinamica
 mcol1, mcol2 = st.columns([1, 2])
-mcol1.metric(
-    "Probabilità",
-    f"{prob:.1%}",
-    delta=f"a {target_horizon} anni",
-    delta_color="off",
-)
+with mcol1:
+    kpi_card(
+        "Probabilità",
+        f"{prob:.1%}",
+        delta=f"a {target_horizon} anni",
+        delta_kind="neutral",
+    )
 
 with mcol2:
+    real_suffix = ' (reali)' if target_use_real else ''
     if prob >= 0.90:
-        st.success(
-            f"✅ **Obiettivo molto probabile** ({prob:.1%}). Con questi "
-            f"parametri, superare €{target_value:,.0f}"
-            f"{' (reali)' if target_use_real else ''} a {target_horizon} "
-            f"anni è quasi scontato."
+        callout(
+            f"<strong>Obiettivo molto probabile</strong> ({prob:.1%}). Con questi "
+            f"parametri, superare €{target_value:,.0f}{real_suffix} a "
+            f"{target_horizon} anni è quasi scontato.",
+            kind="success",
         )
     elif prob >= 0.50:
-        st.info(
-            f"📊 **Obiettivo plausibile** ({prob:.1%}). C'è più di 1 chance "
-            f"su 2 di superare €{target_value:,.0f}"
-            f"{' (reali)' if target_use_real else ''} a {target_horizon} anni."
+        callout(
+            f"<strong>Obiettivo plausibile</strong> ({prob:.1%}). C'è più di 1 "
+            f"chance su 2 di superare €{target_value:,.0f}{real_suffix} a "
+            f"{target_horizon} anni.",
+            kind="info",
         )
     elif prob >= 0.20:
-        st.warning(
-            f"⚠️ **Obiettivo ambizioso** ({prob:.1%}). Meno di 1 chance su 4. "
-            f"Considera un PAC più alto o un orizzonte più lungo."
+        callout(
+            f"<strong>Obiettivo ambizioso</strong> ({prob:.1%}). Meno di 1 chance "
+            f"su 4. Considera un PAC più alto o un orizzonte più lungo.",
+            kind="warning",
         )
     else:
-        st.error(
-            f"❌ **Obiettivo poco realistico** ({prob:.1%}). Con questi "
-            f"parametri, superare €{target_value:,.0f} a {target_horizon} "
-            f"anni è improbabile."
+        callout(
+            f"<strong>Obiettivo poco realistico</strong> ({prob:.1%}). Con questi "
+            f"parametri, superare €{target_value:,.0f} a {target_horizon} anni "
+            f"è improbabile.",
+            kind="danger",
         )
 
 st.divider()
@@ -437,7 +451,7 @@ st.divider()
 # INTERPRETAZIONE TESTUALE (auto-generata dal modulo)
 # --------------------------------------------------------------------------- #
 st.subheader("Interpretazione")
-st.info("💡 " + result["interpretation"])
+callout(result["interpretation"], kind="info")
 
 # --------------------------------------------------------------------------- #
 # EXPANDER DIDATTICO / CAVEAT METODOLOGICI
