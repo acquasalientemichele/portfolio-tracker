@@ -284,14 +284,13 @@ def inject_css() -> None:
         /* JetBrains Mono + tabular-nums per allineamento decimali pulito */
         [data-testid="stMetricValue"],
         [data-testid="stMetricDelta"] {
-            font-family: 'JetBrains Mono', ui-monospace, monospace;
             font-variant-numeric: tabular-nums;
             font-feature-settings: 'tnum';
             letter-spacing: -0.01em;
         }
+        }
         /* Classe custom per componenti HTML delle pagine (KPI cards, tabelle) */
         .num-mono {
-            font-family: 'JetBrains Mono', ui-monospace, monospace;
             font-variant-numeric: tabular-nums;
             font-feature-settings: 'tnum';
         }
@@ -462,7 +461,6 @@ def inject_css() -> None:
             opacity: 1;
         }
         .pt-kpi-value {
-            font-family: 'JetBrains Mono', ui-monospace, monospace;
             font-variant-numeric: tabular-nums;
             font-feature-settings: 'tnum';
             font-size: 24px;
@@ -478,9 +476,9 @@ def inject_css() -> None:
             padding: 2px 8px;
             border-radius: 6px;
             font-weight: 500;
-            font-family: 'JetBrains Mono', ui-monospace, monospace;
             font-variant-numeric: tabular-nums;
         }
+        
         .pt-kpi-delta--positive { background: #DCFCE7; color: #166534; }
         .pt-kpi-delta--negative { background: #FEE2E2; color: #991B1B; }
         .pt-kpi-delta--neutral  { background: #E2E8F0; color: #475569; }
