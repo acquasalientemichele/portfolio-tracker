@@ -133,7 +133,7 @@ def apply_layout(
         annotations.append(dict(
             text=f"<i>{source}</i>",
             xref="paper", yref="paper",
-            x=0, y=-0.18,
+            x=0, y=-0.12,
             xanchor="left", yanchor="top",
             showarrow=False,
             font=dict(size=10, color=COLORS["muted"], family="Inter, sans-serif"),
@@ -144,8 +144,9 @@ def apply_layout(
         plot_bgcolor=COLORS["bg"],
         paper_bgcolor=COLORS["bg"],
         font=dict(family="Inter, sans-serif", color=COLORS["fg"]),
-        # Margini: top per titolo+subtitle, bottom per fonte+asse X
-        margin=dict(l=60, r=80, t=80, b=70),
+        # Margini: top per titolo+subtitle, bottom per fonte+asse X (b=90
+        # per garantire che la fonte non sia coperta dall'expander sotto).
+        margin=dict(l=60, r=80, t=80, b=90),
         annotations=list(fig.layout.annotations) + annotations,
         showlegend=False,   # usiamo endline annotations invece
         # Formato numeri US (dot decimal, comma thousands)

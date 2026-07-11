@@ -12,11 +12,12 @@ Mappa la sezione 7 del notebook.
 """
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
 import streamlit as st
 
 import portfolio as pf
-import chart_style as cs
+import plotly_style as ps
 from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
 from streamlit_components import kpi_card
 
@@ -29,7 +30,6 @@ inject_css()
 
 tx, prices, _ = ensure_data_loaded()
 render_sidebar(current_page="andamento")
-cs.apply_global_style()
 
 # --------------------------------------------------------------------------- #
 # CALCOLI
@@ -62,69 +62,155 @@ with col4:
 st.divider()
 
 # --------------------------------------------------------------------------- #
-# GRAFICO
+# GRAFICO (Plotly interattivo)
 # --------------------------------------------------------------------------- #
 # Replica della sezione 7 del notebook. Stile FT: linee chiare, area shaded
-# discreta, marker + label sui valori finali.
+# discreta, marker + label sui valori finali. Interattività: hover unificato
+# mostra valore + capitale investito alla data del cursore.
 
-fig, ax = plt.subplots(figsize=(11, 5.5))
-cs.style_axis(ax)
+value = vs["value"].values
+invested = invested_cum.values
 
-# Area gain/loss tra valore e capitale investito
-ax.fill_between(
-    vs.index, vs["value"], invested_cum,
-    where=(vs["value"] >= invested_cum),
-    color=cs.COLORS["gain"], alpha=0.13, interpolate=True, zorder=1,
-)
-ax.fill_between(
-    vs.index, vs["value"], invested_cum,
-    where=(vs["value"] < invested_cum),
-    color=cs.COLORS["loss"], alpha=0.13, interpolate=True, zorder=1,
-)
+# Area shading tra due serie con colore condizionale.
+# Tecnica: 2 trace mascherate riempite verso una baseline invisibile:
+# - value_upper = max(value, invested) → area verde solo dove value > invested
+# - value_lower = min(value, invested) → area rossa solo dove value < invested
+value_upper = np.maximum(value, invested)
+value_lower = np.minimum(value, invested)
 
-# Linee
-ax.plot(vs.index, invested_cum,
-        color=cs.COLORS["invested"], linewidth=1.4, linestyle="--",
-        label="Capitale investito", zorder=2)
-ax.plot(vs.index, vs["value"],
-        color=cs.COLORS["value"], linewidth=2.2,
-        label="Valore portafoglio", zorder=3)
+fig = go.Figure()
 
-# Marker e label sul valore corrente
-ax.scatter([last_x], [last_v], color=cs.COLORS["value"], s=45, zorder=4,
-           edgecolor="white", linewidth=1.8)
-ax.annotate(
-    f"  €{last_v:,.0f}", xy=(last_x, last_v),
-    xytext=(6, 0), textcoords="offset points",
-    va="center", ha="left", fontsize=10.5, fontweight="bold",
-    color=cs.COLORS["value"],
-)
+# Baseline invisibile = capitale investito (necessaria come riferimento per il fill)
+fig.add_trace(go.Scatter(
+    x=vs.index, y=invested,
+    mode="lines",
+    line=dict(color="rgba(0,0,0,0)", width=0),
+    showlegend=False,
+    hoverinfo="skip",
+    name="_baseline",
+))
 
-# Marker e label sul capitale investito
-ax.scatter([last_x], [last_i], color=cs.COLORS["invested"], s=32, zorder=4,
-           edgecolor="white", linewidth=1.5)
-ax.annotate(
-    f"  €{last_i:,.0f}", xy=(last_x, last_i),
-    xytext=(6, 0), textcoords="offset points",
-    va="center", ha="left", fontsize=9.5, fontweight="medium",
-    color=cs.COLORS["muted"],
-)
+# Area verde: sopra la baseline dove value > invested
+fig.add_trace(go.Scatter(
+    x=vs.index, y=value_upper,
+    mode="lines",
+    line=dict(color="rgba(0,0,0,0)", width=0),
+    fill="tonexty",
+    fillcolor=ps._hex_to_rgba(ps.COLORS["gain"], 0.13),
+    showlegend=False,
+    hoverinfo="skip",
+    name="_area_gain",
+))
 
-# Margine destro extra per le label
-span = vs.index[-1] - vs.index[0]
-ax.set_xlim(vs.index[0], vs.index[-1] + span * 0.06)
+# Baseline invisibile (di nuovo, serve tra un fill e l'altro per l'area rossa)
+fig.add_trace(go.Scatter(
+    x=vs.index, y=invested,
+    mode="lines",
+    line=dict(color="rgba(0,0,0,0)", width=0),
+    showlegend=False,
+    hoverinfo="skip",
+    name="_baseline2",
+))
 
-cs.style_legend(ax)
+# Area rossa: sotto la baseline dove value < invested
+fig.add_trace(go.Scatter(
+    x=vs.index, y=value_lower,
+    mode="lines",
+    line=dict(color="rgba(0,0,0,0)", width=0),
+    fill="tonexty",
+    fillcolor=ps._hex_to_rgba(ps.COLORS["loss"], 0.13),
+    showlegend=False,
+    hoverinfo="skip",
+    name="_area_loss",
+))
+
+# Linea capitale investito (tratteggiata, grigia)
+fig.add_trace(go.Scatter(
+    x=vs.index, y=invested,
+    name="Capitale investito",
+    mode="lines",
+    line=dict(color=ps.COLORS["invested"], width=1.4, dash="dash"),
+    hovertemplate="<b>€%{y:,.0f}</b><extra>Capitale investito</extra>",
+))
+
+# Linea valore portafoglio (principale, navy)
+fig.add_trace(go.Scatter(
+    x=vs.index, y=value,
+    name="Valore portafoglio",
+    mode="lines",
+    line=dict(color=ps.COLORS["value"], width=2.2),
+    hovertemplate="<b>€%{y:,.0f}</b><extra>Valore portafoglio</extra>",
+))
+
+# Marker sul valore finale (grande, navy)
+fig.add_trace(go.Scatter(
+    x=[last_x], y=[last_v],
+    mode="markers",
+    marker=dict(color=ps.COLORS["value"], size=10,
+                line=dict(color="white", width=1.8)),
+    showlegend=False,
+    hoverinfo="skip",
+))
+
+# Marker sul capitale investito finale (più piccolo, grigio)
+fig.add_trace(go.Scatter(
+    x=[last_x], y=[last_i],
+    mode="markers",
+    marker=dict(color=ps.COLORS["invested"], size=7,
+                line=dict(color="white", width=1.5)),
+    showlegend=False,
+    hoverinfo="skip",
+))
+
+# Assi + hover unificato
+ps.style_axes(fig, y_format="euro", x_is_date=True)
+ps.hover_unified(fig)
+
+# Etichette dei valori finali posizionate come "tick speciali" sull'asse Y
+# (sul lato sinistro del grafico, allineate ai tick regolari) con font
+# più grande. Sostituisce ps.add_endline_annotations che avrebbe messo
+# le etichette a destra dopo i marker. Qui i valori sono in €, hanno
+# senso come tick sull'asse Y.
+tick_annotations = [
+    dict(
+        text=f"<b>€{last_v:,.0f}</b>",
+        xref="paper", yref="y",
+        x=-0.01,   # subito fuori dal plot area a sinistra
+        y=last_v,
+        xanchor="right",
+        yanchor="middle",
+        showarrow=False,
+        font=dict(size=12, color=ps.COLORS["value"], family="Inter, sans-serif"),
+    ),
+    dict(
+        text=f"<b>€{last_i:,.0f}</b>",
+        xref="paper", yref="y",
+        x=-0.01,
+        y=last_i,
+        xanchor="right",
+        yanchor="middle",
+        showarrow=False,
+        font=dict(size=12, color=ps.COLORS["muted"], family="Inter, sans-serif"),
+    ),
+]
+existing = list(fig.layout.annotations)
+fig.update_layout(annotations=existing + tick_annotations)
+
+# Sottotitolo dinamico con valore attuale + P&L
 sign = "+" if pnl >= 0 else "−"
-cs.add_title(
+ps.apply_layout(
     fig,
     title="Portfolio Performance",
     subtitle=f"€{last_v:,.0f}   ·   {sign}€{abs(pnl):,.0f} "
              f"({pnl_pct:+.1%}) dall'inizio",
     source=f"Fonte: yfinance (EOD)  ·  Aggiornato {vs.index[-1].date()}",
+    height=500,   # leggermente più alto del default per aspect ratio simile a matplotlib originale
 )
 
-st.pyplot(fig, use_container_width=True)
+# Aumento margin sinistro per accomodare le etichette più larghe (€6,505)
+fig.update_layout(margin=dict(l=90, r=80, t=80, b=90))
+
+st.plotly_chart(fig, use_container_width=True, config=ps.PLOTLY_CONFIG)
 
 # --------------------------------------------------------------------------- #
 # FOOTER DIDATTICO
