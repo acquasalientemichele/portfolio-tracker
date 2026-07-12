@@ -22,7 +22,8 @@ from __future__ import annotations
 import streamlit as st
 
 import portfolio as pf
-from streamlit_utils import ensure_data_loaded, render_sidebar
+from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
+from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
 # PAGE CONFIG
@@ -38,26 +39,27 @@ st.set_page_config(
 # --------------------------------------------------------------------------- #
 # DATA LOADING + SIDEBAR
 # --------------------------------------------------------------------------- #
+inject_css()
+
 tx, prices, settings = ensure_data_loaded()
-render_sidebar()
+render_sidebar(current_page="home")
 
 # --------------------------------------------------------------------------- #
 # CONTENUTO HOME
 # --------------------------------------------------------------------------- #
-st.title("📊 Portfolio Tracker")
+st.title("Portfolio Tracker")
 st.caption("Dashboard di monitoraggio del portafoglio ETF")
 
-st.markdown(
-    """
-Benvenuto. Usa la **navigazione a sinistra** per esplorare le sezioni:
-
-- **📊 Holdings** — posizioni correnti, P&L per ticker, pesi attuali
-- _(altre pagine in arrivo: Performance, Allocazione, Rischio, …)_
-
-I dati vengono caricati al primo accesso e tenuti in memoria fino al click
-su **🔄 Ricarica dati** nella sidebar.
-"""
+callout(
+    "Usa la <strong>navigazione a sinistra</strong> per esplorare le sezioni "
+    "di dettaglio: Holdings, Performance, Allocazione, Andamento, "
+    "Vs Benchmark, Costi e fiscalità, Ribilanciamento, Rischio e Monte Carlo. "
+    "I dati vengono caricati al primo accesso e tenuti in memoria fino al "
+    "click su <strong>🔄 Ricarica dati</strong> nella sidebar.",
+    kind="info",
 )
+
+st.divider()
 
 st.divider()
 
@@ -77,10 +79,19 @@ pnl_eur = market_value - invested
 pnl_pct = pnl_eur / invested if invested else 0.0
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Capitale investito", f"{invested:,.2f} €")
-col2.metric("Valore di mercato", f"{market_value:,.2f} €")
-col3.metric("P&L", f"{pnl_eur:+,.2f} €", delta=f"{pnl_pct:+.2%}")
-col4.metric("N° posizioni", f"{len(holdings_valued)}")
+with col1:
+    kpi_card("Capitale investito", f"{invested:,.2f} €")
+with col2:
+    kpi_card("Valore di mercato", f"{market_value:,.2f} €")
+with col3:
+    kpi_card(
+        "P&L",
+        f"{pnl_eur:+,.2f} €",
+        delta=f"{pnl_pct:+.2%}",
+        delta_kind="positive" if pnl_eur >= 0 else "negative",
+    )
+with col4:
+    kpi_card("N° posizioni", f"{len(holdings_valued)}")
 
 st.caption(
     f"📅 Dati al {prices.index[-1]:%d/%m/%Y}  ·  "
