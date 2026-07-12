@@ -10,15 +10,15 @@ Ultima pagina della sequenza notebook. Mappa la sezione 12 del notebook.
 """
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
-from matplotlib.ticker import FuncFormatter
 
 import portfolio as pf
 import montecarlo as mc
-import chart_style as cs
+import plotly_style as ps
+
 from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
 from streamlit_components import kpi_card, callout
 
@@ -31,7 +31,6 @@ inject_css()
 
 tx, prices, settings = ensure_data_loaded()
 render_sidebar(current_page="monte_carlo")
-cs.apply_global_style()
 
 # --------------------------------------------------------------------------- #
 # DATI DI PARTENZA
@@ -249,62 +248,123 @@ p95 = np.percentile(simulations, 95, axis=0)
 # Capitale versato deterministico (linea di riferimento)
 contributed = initial_value + monthly_pac * months_axis
 
-fig, ax = plt.subplots(figsize=(11, 5.5))
+fig = go.Figure()
 
-# Fascia esterna 5-95 (molto leggera)
-ax.fill_between(months_axis, p5, p95,
-                color=cs.COLORS["value"], alpha=0.10,
-                label="5°-95° percentile")
+# Fascia esterna 5-95:
+# Trace p95 come "limite superiore" (linea invisibile ma con hover)
+# Trace p5 con fill="tonexty" che riempie tra p5 e p95
+fig.add_trace(go.Scatter(
+    x=months_axis, y=p95,
+    mode="lines",
+    line=dict(color=ps.COLORS["value"], width=0.5),
+    opacity=0.4,
+    name="95° percentile",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>95° perc.</extra>",
+))
+fig.add_trace(go.Scatter(
+    x=months_axis, y=p5,
+    mode="lines",
+    line=dict(color=ps.COLORS["value"], width=0.5),
+    opacity=0.4,
+    fill="tonexty",
+    fillcolor=ps._hex_to_rgba(ps.COLORS["value"], 0.10),
+    name="5° percentile",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>5° perc.</extra>",
+))
 
-# Fascia interna 25-75 (più marcata)
-ax.fill_between(months_axis, p25, p75,
-                color=cs.COLORS["value"], alpha=0.22,
-                label="25°-75° percentile")
+# Fascia interna 25-75:
+fig.add_trace(go.Scatter(
+    x=months_axis, y=p75,
+    mode="lines",
+    line=dict(color=ps.COLORS["value"], width=0.5),
+    opacity=0.5,
+    name="75° percentile",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>75° perc.</extra>",
+))
+fig.add_trace(go.Scatter(
+    x=months_axis, y=p25,
+    mode="lines",
+    line=dict(color=ps.COLORS["value"], width=0.5),
+    opacity=0.5,
+    fill="tonexty",
+    fillcolor=ps._hex_to_rgba(ps.COLORS["value"], 0.22),
+    name="25° percentile",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>25° perc.</extra>",
+))
 
-# Linea mediana (spessa)
-ax.plot(months_axis, p50, color=cs.COLORS["value"], linewidth=2.4,
-        label="Mediana (50°)", zorder=5)
+# Linea mediana p50 (spessa, navy)
+fig.add_trace(go.Scatter(
+    x=months_axis, y=p50,
+    mode="lines",
+    line=dict(color=ps.COLORS["value"], width=2.4),
+    name="Mediana (50°)",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>Mediana</extra>",
+))
 
 # Linea capitale versato (arancione tratteggiata)
-ax.plot(months_axis, contributed, color=cs.COLORS["benchmark"],
-        linewidth=1.6, linestyle="--", label="Capitale versato",
-        zorder=4)
+fig.add_trace(go.Scatter(
+    x=months_axis, y=contributed,
+    mode="lines",
+    line=dict(color=ps.COLORS["benchmark"], width=1.6, dash="dash"),
+    name="Capitale versato",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>Capitale versato</extra>",
+))
 
-# Annotazioni sui valori finali
+# Marker sui valori finali (mediana + versato)
 last_m = months_axis[-1]
-ax.annotate(
-    f"  €{p50[-1]:,.0f}", xy=(last_m, p50[-1]),
-    xytext=(6, 0), textcoords="offset points", va="center", ha="left",
-    fontsize=10.5, fontweight="bold", color=cs.COLORS["value"],
+fig.add_trace(go.Scatter(
+    x=[last_m], y=[p50[-1]],
+    mode="markers",
+    marker=dict(color=ps.COLORS["value"], size=10,
+                line=dict(color="white", width=1.8)),
+    showlegend=False, hoverinfo="skip",
+))
+fig.add_trace(go.Scatter(
+    x=[last_m], y=[contributed[-1]],
+    mode="markers",
+    marker=dict(color=ps.COLORS["benchmark"], size=7,
+                line=dict(color="white", width=1.5)),
+    showlegend=False, hoverinfo="skip",
+))
+
+# Assi + hover unificato + endline annotations
+ps.style_axes(fig, y_format="euro", x_is_date=False)
+ps.hover_unified(fig, x_format="%d mesi")   # x è numerico (mesi)
+
+# Custom tickvals X: mostro "anni" invece di mesi.
+# Es. n_months=240 (20 anni) → tick a 0, 12, 24, ..., 240 con label 0,1,2,...,20
+years_max = n_months // 12
+# Determino step per non affollare l'asse (max ~10 tick)
+year_step = max(1, years_max // 10)
+year_ticks = list(range(0, years_max + 1, year_step))
+month_tickvals = [y * 12 for y in year_ticks]
+year_ticktext = [str(y) for y in year_ticks]
+fig.update_xaxes(
+    tickvals=month_tickvals,
+    ticktext=year_ticktext,
+    title=dict(text="Anni", font=dict(size=10, color=ps.COLORS["muted"])),
 )
-ax.annotate(
-    f"  €{contributed[-1]:,.0f}", xy=(last_m, contributed[-1]),
-    xytext=(6, 0), textcoords="offset points", va="center", ha="left",
-    fontsize=9.5, color=cs.COLORS["benchmark"],
-)
 
-# Margine destro per le label
-ax.set_xlim(0, last_m + n_months * 0.06)
-
-# Formatter: asse X in anni (mese / 12), asse Y in €
-ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v/12)}"))
-ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"€{v:,.0f}"))
-ax.set_xlabel("Anni", fontsize=10, color=cs.COLORS["fg"])
-
-cs.style_axis(ax, euro=False, date_axis=False)
-cs.style_legend(ax, loc="upper left")
+# Endline annotations sui valori finali (pattern A: destra dopo i marker)
+ps.add_endline_annotations(fig, [
+    {"y": p50[-1], "text": f"€{p50[-1]:,.0f}", "color": ps.COLORS["value"]},
+    {"y": contributed[-1], "text": f"€{contributed[-1]:,.0f}",
+     "color": ps.COLORS["benchmark"]},
+])
 
 max_horizon = max(horizons)
 median_final = p50[max_horizon * 12] if max_horizon * 12 <= n_months else p50[-1]
-cs.add_title(
+ps.apply_layout(
     fig,
     title=f"Proiezione {max_horizon} anni · PAC {monthly_pac:,.0f} €/mese",
     subtitle=f"Mediana a {max_horizon} anni: €{median_final:,.0f}  ·  "
              f"{n_simulations:,} simulazioni Monte Carlo",
     source=f"Calibrazione: {cal['start_date']:%m/%Y}–{cal['end_date']:%m/%Y} "
            f"({cal['n_days']/252:.1f} anni)",
+    height=500,
 )
-st.pyplot(fig, use_container_width=True)
+
+st.plotly_chart(fig, use_container_width=True, config=ps.PLOTLY_CONFIG)
 
 st.divider()
 
