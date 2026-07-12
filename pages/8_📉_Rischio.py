@@ -15,14 +15,13 @@ from __future__ import annotations
 
 import math
 
-import matplotlib.pyplot as plt
 import numpy as np
+import plotly.graph_objects as go
 import streamlit as st
-from matplotlib.ticker import FuncFormatter
 
 import portfolio as pf
 import risk as rk
-import chart_style as cs
+import plotly_style as ps
 from streamlit_utils import ensure_data_loaded, render_sidebar, fetch_prices, inject_css
 from streamlit_components import kpi_card, callout
 
@@ -35,7 +34,6 @@ inject_css()
 
 tx, prices, settings = ensure_data_loaded()
 render_sidebar(current_page="rischio")
-cs.apply_global_style()
 
 benchmark_ticker = settings.get("benchmark_ticker", "VWCE.DE")
 
@@ -196,60 +194,96 @@ with row2c3:
 st.divider()
 
 # --------------------------------------------------------------------------- #
-# DRAWDOWN CHART
+# DRAWDOWN CHART (Plotly interattivo)
 # --------------------------------------------------------------------------- #
 st.subheader("Drawdown underwater chart")
 
 dd_series = rk.compute_drawdown_series(twr_cum)
 top_dds = metrics["top_drawdowns"]
 
-fig, ax = plt.subplots(figsize=(11, 4.5))
+# Serie drawdown in frazione (0 → -0.15 per un DD del 15%).
+# Plotly con y_format="percent" moltiplica × 100 per la visualizzazione.
+dd = dd_series["drawdown"]
 
-# Drawdown in % (sempre ≤ 0)
-dd_pct = dd_series["drawdown"] * 100
+fig = go.Figure()
 
-# Linea drawdown
-ax.plot(dd_series.index, dd_pct, color=cs.COLORS["loss"], linewidth=1.4,
-        zorder=3)
-
-# Area shaded sotto la curva (rosso)
-ax.fill_between(dd_series.index, dd_pct, 0,
-                color=cs.COLORS["loss"], alpha=0.15, zorder=2)
+# Area shaded rossa sotto la curva (verso zero)
+fig.add_trace(go.Scatter(
+    x=dd_series.index, y=dd.values,
+    mode="lines",
+    line=dict(color=ps.COLORS["loss"], width=1.4),
+    fill="tozeroy",
+    fillcolor=ps._hex_to_rgba(ps.COLORS["loss"], 0.15),
+    hovertemplate="<b>%{y:+.2%}</b><extra>Drawdown</extra>",
+    name="Drawdown",
+))
 
 # Linea orizzontale a 0 (livello peak)
-ax.axhline(0, color=cs.COLORS["muted"], linewidth=0.8, linestyle="--",
-           alpha=0.6, zorder=1)
+fig.add_hline(
+    y=0,
+    line=dict(color=ps.COLORS["muted"], width=0.8, dash="dash"),
+    opacity=0.6,
+)
 
-# Marker e annotazioni sui top-3 drawdowns
-for i, dd in top_dds.iterrows():
-    bottom_date = dd["bottom_date"]
-    depth_pct = dd["depth"] * 100
-    ax.scatter([bottom_date], [depth_pct],
-               color=cs.COLORS["loss"], s=60, zorder=5,
-               edgecolor="white", linewidth=1.5)
-    label = f"  #{i+1}: {depth_pct:+.2f}%"
-    if not dd["recovered"]:
-        label += " (in corso)"
-    ax.annotate(
-        label, xy=(bottom_date, depth_pct),
-        xytext=(6, -8 if i == 0 else 6), textcoords="offset points",
-        va="top" if i == 0 else "bottom", ha="left",
-        fontsize=9, fontweight="bold", color=cs.COLORS["loss"],
+# Marker + annotazioni sui top-N drawdowns.
+# Convenzione posizionale: il primo (più profondo) ha l'annotation SOTTO
+# il marker per non affollare l'area centrale del grafico; gli altri
+# hanno l'annotation SOPRA per allontanarli dal cluster centrale.
+for i, drow in top_dds.iterrows():
+    bottom_date = drow["bottom_date"]
+    depth = drow["depth"]
+
+    # Marker
+    fig.add_trace(go.Scatter(
+        x=[bottom_date], y=[depth],
+        mode="markers",
+        marker=dict(color=ps.COLORS["loss"], size=11,
+                    line=dict(color="white", width=1.5)),
+        showlegend=False,
+        hovertemplate=f"<b>#{i+1}: {depth:+.2%}</b>"
+                      f"{'  (in corso)' if not drow['recovered'] else ''}"
+                      f"<extra></extra>",
+    ))
+
+    # Annotation
+    label = f"#{i+1}: {depth:+.2%}"
+    if not drow["recovered"]:
+        label += "  (in corso)"
+
+    yshift = -14 if i == 0 else 14
+    yanchor = "top" if i == 0 else "bottom"
+
+    fig.add_annotation(
+        x=bottom_date, y=depth,
+        text=f"<b>{label}</b>",
+        showarrow=False,
+        xanchor="left", yanchor=yanchor,
+        xshift=8, yshift=yshift,
+        font=dict(size=10, color=ps.COLORS["loss"], family="Inter, sans-serif"),
     )
 
-cs.style_axis(ax, euro=False, date_axis=True)
-ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:.1f}%"))
-ax.set_ylim(top=max(0.5, dd_pct.max() * 1.5))  # garantisce un po' di aria sopra
+# Assi + hover unificato
+ps.style_axes(fig, y_format="percent", x_is_date=True)
+ps.hover_unified(fig)
 
-cs.add_title(
+# Un po' di aria sopra la linea 0 per non far comprimere il grafico
+# quando i drawdown sono piccoli
+y_top = max(0.005, abs(dd.min()) * 0.15)   # almeno 0.5% sopra
+y_bottom = dd.min() * 1.25                  # 25% di aria sotto (era 10%)
+fig.update_yaxes(range=[y_bottom, y_top])
+
+max_dd_pct = metrics["max_drawdown"]
+max_dd_dur = metrics["max_drawdown_duration_days"] or "—"
+ps.apply_layout(
     fig,
     title="Drawdown nel tempo",
-    subtitle=f"Perdita percentuale dal peak running. "
-             f"Max DD: {metrics['max_drawdown']*100:+.2f}%, "
-             f"durata {metrics['max_drawdown_duration_days'] or '—'} giorni",
+    subtitle=f"Perdita percentuale dal peak running.  "
+             f"Max DD: {max_dd_pct:+.2%},  durata {max_dd_dur} giorni",
     source=None,
+    height=380,   # più basso del default 420 perché il DD è "underwater" (poca aria sopra)
 )
-st.pyplot(fig, use_container_width=True)
+
+st.plotly_chart(fig, use_container_width=True, config=ps.PLOTLY_CONFIG)
 
 # --------------------------------------------------------------------------- #
 # TABELLA TOP DRAWDOWNS

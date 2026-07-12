@@ -107,7 +107,7 @@ def apply_layout(
     """
     annotations = []
 
-    # Titolo (bold, allineato a sinistra)
+# Titolo (bold, allineato a sinistra)
     annotations.append(dict(
         text=f"<b>{title}</b>",
         xref="paper", yref="paper",
@@ -122,7 +122,7 @@ def apply_layout(
         annotations.append(dict(
             text=subtitle,
             xref="paper", yref="paper",
-            x=0, y=1.08,
+            x=0, y=1.04,
             xanchor="left", yanchor="top",
             showarrow=False,
             font=dict(size=11, color=COLORS["muted"], family="Inter, sans-serif"),
