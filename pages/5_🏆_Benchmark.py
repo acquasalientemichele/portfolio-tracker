@@ -13,12 +13,13 @@ Mappa la sezione 8 del notebook.
 """
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
 import streamlit as st
 
 import portfolio as pf
 import costs as cst
-import chart_style as cs
+import plotly_style as ps
 from streamlit_utils import ensure_data_loaded, render_sidebar, fetch_prices, inject_css
 from streamlit_components import kpi_card, callout
 
@@ -31,7 +32,6 @@ inject_css()
 
 tx, prices, settings = ensure_data_loaded()
 render_sidebar(current_page="benchmark")
-cs.apply_global_style()
 
 benchmark_ticker = settings.get("benchmark_ticker", "VWCE.DE")
 
@@ -50,15 +50,14 @@ bench_df = fetch_prices((benchmark_ticker,), start=vs.index.min().strftime("%Y-%
 bench = bench_df[benchmark_ticker].reindex(vs.index).ffill()
 bench_norm = bench / bench.iloc[0]
 
-# Allineo tutte e tre le serie sulla stessa griglia temporale
+# Allineo le serie sulla stessa griglia temporale
 common_idx = twr.index.intersection(bench_norm.index)
 twr_a = twr.reindex(common_idx)
-twr_net_a = twr_net.reindex(common_idx)
 bench_a = bench_norm.reindex(common_idx)
 
 # Valori finali
 last_p = float(twr_a.iloc[-1])
-last_pn = float(twr_net_a.iloc[-1])
+last_pn = float(twr_net.reindex(common_idx).iloc[-1])  # per KPI "TWR netto bollo"
 last_b = float(bench_a.iloc[-1])
 
 ret_p = (last_p - 1) * 100
@@ -135,90 +134,124 @@ else:
 st.divider()
 
 # --------------------------------------------------------------------------- #
-# GRAFICO
+# GRAFICO (Plotly interattivo)
 # --------------------------------------------------------------------------- #
-fig, ax = plt.subplots(figsize=(11, 5.5))
-cs.style_axis(ax, euro=False)
+# Confronto TWR lordo vs benchmark. La linea "portafoglio netto post-bollo"
+# è stata rimossa: il drag del bollo è irrilevante visivamente (< 0.1pp
+# → linea sovrapposta a quella lorda) e il valore quantitativo resta
+# esplicito nella KPI card "TWR netto bollo" con delta -X.XXpp drag.
 
-# Formatter asse Y: variazione % rispetto al base 1.0
-def pct_fmt(v, _):
-    delta = v - 1.0
-    if abs(delta) < 0.0005:
-        return "Base"
-    sign = "+" if delta >= 0 else "−"
-    return f"{sign}{abs(delta)*100:.0f}%"
+# Trasformo le serie normalizzate (1.0 = base) in variazione %
+# (0.0 = base). Plotly con y_format="percent" moltiplica × 100.
+ret_p_series = twr_a - 1.0
+ret_bench_series = bench_a - 1.0
 
-ax.yaxis.set_major_formatter(plt.FuncFormatter(pct_fmt))
+# Area fill tra portafoglio e benchmark: verde quando lordo > benchmark
+# (outperformance), rosso altrimenti. Stessa tecnica di Andamento:
+# 4 trace mascherate con np.maximum/np.minimum.
+p_upper = np.maximum(ret_p_series.values, ret_bench_series.values)
+p_lower = np.minimum(ret_p_series.values, ret_bench_series.values)
 
-# Fill: outperformance/underperformance vs benchmark (sul lordo)
-ax.fill_between(
-    common_idx, twr_a, bench_a,
-    where=(twr_a >= bench_a),
-    color=cs.COLORS["gain"], alpha=0.12, interpolate=True, zorder=1,
+fig = go.Figure()
+
+# Baseline invisibile = benchmark (riferimento per il fill)
+fig.add_trace(go.Scatter(
+    x=common_idx, y=ret_bench_series.values,
+    mode="lines",
+    line=dict(color="rgba(0,0,0,0)", width=0),
+    showlegend=False, hoverinfo="skip", name="_baseline",
+))
+
+# Area verde: sopra baseline dove portafoglio > benchmark
+fig.add_trace(go.Scatter(
+    x=common_idx, y=p_upper,
+    mode="lines",
+    line=dict(color="rgba(0,0,0,0)", width=0),
+    fill="tonexty",
+    fillcolor=ps._hex_to_rgba(ps.COLORS["gain"], 0.12),
+    showlegend=False, hoverinfo="skip", name="_area_gain",
+))
+
+# Baseline invisibile duplicata (serve tra un fill e l'altro)
+fig.add_trace(go.Scatter(
+    x=common_idx, y=ret_bench_series.values,
+    mode="lines",
+    line=dict(color="rgba(0,0,0,0)", width=0),
+    showlegend=False, hoverinfo="skip", name="_baseline2",
+))
+
+# Area rossa: sotto baseline dove portafoglio < benchmark
+fig.add_trace(go.Scatter(
+    x=common_idx, y=p_lower,
+    mode="lines",
+    line=dict(color="rgba(0,0,0,0)", width=0),
+    fill="tonexty",
+    fillcolor=ps._hex_to_rgba(ps.COLORS["loss"], 0.12),
+    showlegend=False, hoverinfo="skip", name="_area_loss",
+))
+
+# Linea benchmark (arancio bruciato, tratteggiata)
+fig.add_trace(go.Scatter(
+    x=common_idx, y=ret_bench_series.values,
+    name="Benchmark",
+    mode="lines",
+    line=dict(color=ps.COLORS["benchmark"], width=1.6, dash="dash"),
+    hovertemplate="<b>%{y:+.2%}</b><extra>Benchmark</extra>",
+))
+
+# Linea portafoglio lordo (navy solid, principale)
+fig.add_trace(go.Scatter(
+    x=common_idx, y=ret_p_series.values,
+    name="Portafoglio",
+    mode="lines",
+    line=dict(color=ps.COLORS["value"], width=2.2),
+    hovertemplate="<b>%{y:+.2%}</b><extra>Portafoglio</extra>",
+))
+
+# Linea di base a 0 (riferimento visivo)
+fig.add_hline(
+    y=0,
+    line=dict(color=ps.COLORS["grid"], width=1.0),
+    opacity=0.6,
 )
-ax.fill_between(
-    common_idx, twr_a, bench_a,
-    where=(twr_a < bench_a),
-    color=cs.COLORS["loss"], alpha=0.12, interpolate=True, zorder=1,
-)
 
-# Linea base (1.0)
-ax.axhline(1.0, color=cs.COLORS["grid"], linewidth=1.0, zorder=1)
+# Marker sui valori finali (portafoglio grande navy, benchmark medio arancio)
+fig.add_trace(go.Scatter(
+    x=[common_idx[-1]], y=[ret_p_series.iloc[-1]],
+    mode="markers",
+    marker=dict(color=ps.COLORS["value"], size=10,
+                line=dict(color="white", width=1.8)),
+    showlegend=False, hoverinfo="skip",
+))
+fig.add_trace(go.Scatter(
+    x=[common_idx[-1]], y=[ret_bench_series.iloc[-1]],
+    mode="markers",
+    marker=dict(color=ps.COLORS["benchmark"], size=8,
+                line=dict(color="white", width=1.5)),
+    showlegend=False, hoverinfo="skip",
+))
 
-# Linea benchmark (tratteggiata, color dedicato)
-ax.plot(bench_a.index, bench_a,
-        color=cs.COLORS["benchmark"], linewidth=1.6, linestyle="--",
-        label="Benchmark", zorder=2)
+# Assi + hover unificato + endline annotations (pattern A: destra dopo i marker)
+ps.style_axes(fig, y_format="percent", x_is_date=True)
+ps.hover_unified(fig)
+ps.add_endline_annotations(fig, [
+    {"y": ret_p_series.iloc[-1], "text": f"{ret_p:+.1f}%",
+     "color": ps.COLORS["value"]},
+    {"y": ret_bench_series.iloc[-1], "text": f"{ret_b:+.1f}%",
+     "color": ps.COLORS["benchmark"]},
+])
 
-# Linea portafoglio netto (puntinata, alpha)
-ax.plot(twr_net_a.index, twr_net_a,
-        color=cs.COLORS["value"], linewidth=1.3, linestyle=":",
-        label="Portafoglio netto (post-bollo)", alpha=0.85, zorder=3)
-
-# Linea portafoglio lordo (la principale)
-ax.plot(twr_a.index, twr_a,
-        color=cs.COLORS["value"], linewidth=2.2,
-        label="Portafoglio lordo", zorder=4)
-
-# Marker e annotazioni sui valori finali
-ax.scatter([common_idx[-1]], [last_p], color=cs.COLORS["value"], s=45,
-           zorder=6, edgecolor="white", linewidth=1.8)
-ax.scatter([common_idx[-1]], [last_pn], color=cs.COLORS["value"], s=22,
-           zorder=6, edgecolor="white", linewidth=1.2, alpha=0.8)
-ax.scatter([common_idx[-1]], [last_b], color=cs.COLORS["benchmark"], s=32,
-           zorder=6, edgecolor="white", linewidth=1.5)
-
-ax.annotate(
-    f"  {ret_p:+.1f}%", xy=(common_idx[-1], last_p),
-    xytext=(6, 6), textcoords="offset points", va="bottom", ha="left",
-    fontsize=10.5, fontweight="bold", color=cs.COLORS["value"],
-)
-ax.annotate(
-    f"  {ret_pn:+.1f}% netto", xy=(common_idx[-1], last_pn),
-    xytext=(6, -6), textcoords="offset points", va="top", ha="left",
-    fontsize=9, color=cs.COLORS["value"], alpha=0.85,
-)
-ax.annotate(
-    f"  {ret_b:+.1f}%", xy=(common_idx[-1], last_b),
-    xytext=(6, 0), textcoords="offset points", va="center", ha="left",
-    fontsize=10, color=cs.COLORS["benchmark"],
-)
-
-# Margine destro extra per le label
-span = common_idx[-1] - common_idx[0]
-ax.set_xlim(common_idx[0], common_idx[-1] + span * 0.09)
-
-cs.style_legend(ax)
-cs.add_title(
+ps.apply_layout(
     fig,
-    title="Performance: Lordo vs Netto vs Benchmark",
-    subtitle=(f"Lordo {ret_p:+.1f}%   ·   "
-              f"Netto bollo {ret_pn:+.1f}% (drag {drag_pp:.2f} pp)   ·   "
-              f"Benchmark {ret_b:+.1f}%"),
+    title="Performance: Portafoglio vs Benchmark",
+    subtitle=f"Lordo {ret_p:+.1f}%   ·   "
+             f"Benchmark {ret_b:+.1f}%   ·   "
+             f"Alpha {alpha_vs_bench:+.2f}pp",
     source=f"Fonte: yfinance (EOD)  ·  Aggiornato {common_idx[-1].date()}",
+    height=500,
 )
 
-st.pyplot(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True, config=ps.PLOTLY_CONFIG)
 
 # --------------------------------------------------------------------------- #
 # EXPANDER DIDATTICO
@@ -228,18 +261,22 @@ with st.expander("ℹ️ Come leggere il grafico"):
         f"""
         - **Linea blu continua**: TWR del portafoglio al **lordo** di bollo e tasse.
           È la metrica standard GIPS, indipendente dal timing dei versamenti.
-        - **Linea blu puntinata**: stesso TWR ma **netto del bollo modellato**
-          (0,2% annuo sul valore giornaliero, modellato con accrual giornaliero).
-          Il *drag* è l'erosione di performance dovuta esclusivamente al bollo.
         - **Linea tratteggiata** (color benchmark): prezzo di {benchmark_ticker}
           normalizzato a 1.0 al primo giorno di operatività.
         - **Area verde / rossa**: outperformance / underperformance del
           portafoglio (lordo) rispetto al benchmark.
 
-        **Cosa NON include il "netto"**:
+        **Sul drag del bollo**: la performance netta post-bollo modellato
+        (0,2% annuo) è mostrata quantitativamente nella KPI card **TWR netto
+        bollo** in alto (delta pp rispetto al lordo). Non è rappresentata
+        come linea separata nel grafico perché il drag è tipicamente < 0.1pp
+        → produrrebbe una linea sovrapposta al lordo, senza aggiungere
+        informazione visiva.
+
+        **Cosa NON include il "netto bollo"**:
         - L'imposta sulle plusvalenze (26%), che si applica solo in caso di
           vendita. Per la simulazione "se vendessi oggi" vedi la pagina
-          **Costi e fiscalità** (in arrivo).
+          **Costi e fiscalità**.
         - Il TER degli ETF: già incorporato nel NAV restituito da yfinance,
           quindi è implicitamente nel TWR lordo.
 
