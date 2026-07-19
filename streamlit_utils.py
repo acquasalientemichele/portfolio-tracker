@@ -41,6 +41,17 @@ from streamlit_components import callout
 # --------------------------------------------------------------------------- #
 TX_FILE = Path("data/transactions.xlsx")
 ICONS_DIR = Path("assets/icons")
+PAGES_DIR = Path("pages")
+
+@lru_cache(maxsize=None)
+def _page_path(slug: str) -> str:
+    """Risolve il file-pagina in pages/ che termina con _{slug}.py.
+
+    Evita di hardcodare numero/emoji del filename (fragili). Fallback ad
+    app.py se non trovato, così st.page_link non riceve mai un path invalido.
+    """
+    matches = sorted(PAGES_DIR.glob(f"*_{slug}.py"))
+    return str(matches[0]) if matches else "app.py"
 
 # Navigation della sidebar custom.
 # Ordine = ordine di apparizione. La `key` è l'identificativo passato dalle
@@ -48,16 +59,16 @@ ICONS_DIR = Path("assets/icons")
 # gestito dal routing multi-page di Streamlit (derivato dal nome file in
 # pages/ dopo che Streamlit rimuove prefisso numerico, emoji e .py).
 NAV_ITEMS: tuple[dict, ...] = (
-    {"key": "home",            "label": "Home",            "icon": "home",            "url": "/"},
-    {"key": "holdings",        "label": "Holdings",        "icon": "holdings",        "url": "/Holdings"},
-    {"key": "performance",     "label": "Performance",     "icon": "performance",     "url": "/Performance"},
-    {"key": "allocazione",     "label": "Allocazione",     "icon": "allocazione",     "url": "/Allocazione"},
-    {"key": "andamento",       "label": "Andamento",       "icon": "andamento",       "url": "/Andamento"},
-    {"key": "benchmark",       "label": "Vs benchmark",    "icon": "benchmark",       "url": "/Benchmark"},
-    {"key": "costi",           "label": "Costi e fisco",   "icon": "costi",           "url": "/Costi"},
-    {"key": "ribilanciamento", "label": "Ribilanciamento", "icon": "ribilanciamento", "url": "/Ribilanciamento"},
-    {"key": "rischio",         "label": "Rischio",         "icon": "rischio",         "url": "/Rischio"},
-    {"key": "monte_carlo",     "label": "Monte Carlo",     "icon": "monte-carlo",     "url": "/Monte_Carlo"},
+    {"label": "Home",            "slug": None,             "icon": ":material/home:"},
+    {"label": "Holdings",        "slug": "Holdings",       "icon": ":material/account_balance_wallet:"},
+    {"label": "Performance",     "slug": "Performance",    "icon": ":material/trending_up:"},
+    {"label": "Allocazione",     "slug": "Allocazione",    "icon": ":material/donut_small:"},
+    {"label": "Andamento",       "slug": "Andamento",      "icon": ":material/show_chart:"},
+    {"label": "Vs benchmark",    "slug": "Benchmark",      "icon": ":material/leaderboard:"},
+    {"label": "Costi e fisco",   "slug": "Costi",          "icon": ":material/receipt_long:"},
+    {"label": "Ribilanciamento", "slug": "Ribilanciamento","icon": ":material/balance:"},
+    {"label": "Rischio",         "slug": "Rischio",        "icon": ":material/monitoring:"},
+    {"label": "Monte Carlo",     "slug": "Monte_Carlo",    "icon": ":material/casino:"},
 )
 
 
@@ -199,20 +210,17 @@ def render_sidebar(current_page: str = "") -> None:
     Va chiamata da ogni pagina dopo `inject_css()` ed `ensure_data_loaded()`.
     """
     with st.sidebar:
-        # --- Brand + nav custom (HTML unico blocco) ---
-        parts = ['<div class="pt-brand">Portfolio<br>Tracker</div>',
-                 '<nav class="pt-nav">']
+        # --- Brand ---
+        st.markdown('<div class="pt-brand">Portfolio<br>Tracker</div>',
+                    unsafe_allow_html=True)
+
+        # --- Nav: st.page_link = navigazione CLIENT-SIDE che PRESERVA
+        #     st.session_state. I vecchi <a href> facevano un full reload,
+        #     azzerando la sessione (e con essa i dati da upload/demo). ---
         for item in NAV_ITEMS:
-            active_cls = " active" if item["key"] == current_page else ""
-            icon_svg = load_icon(item["icon"])
-            parts.append(
-                f'<a href="{item["url"]}" target="_self" '
-                f'class="pt-nav-item{active_cls}">'
-                f'{icon_svg}<span>{item["label"]}</span>'
-                f'</a>'
-            )
-        parts.append('</nav>')
-        st.markdown("".join(parts), unsafe_allow_html=True)
+            page = "app.py" if item["slug"] is None else _page_path(item["slug"])
+            st.page_link(page, label=item["label"], icon=item["icon"],
+                         use_container_width=True)
 
         # --- Sezione Dati (solo quando c'è un dataset caricato) ---
         if "workbook_bytes" in st.session_state:
