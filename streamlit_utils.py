@@ -27,11 +27,14 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from textwrap import dedent
+from io import BytesIO   
 
 import pandas as pd
 import streamlit as st
 
 import portfolio as pf
+import costs as cst            
+from streamlit_components import callout
 
 # --------------------------------------------------------------------------- #
 # CONFIG
@@ -45,7 +48,8 @@ ICONS_DIR = Path("assets/icons")
 # gestito dal routing multi-page di Streamlit (derivato dal nome file in
 # pages/ dopo che Streamlit rimuove prefisso numerico, emoji e .py).
 NAV_ITEMS: tuple[dict, ...] = (
-    {"key": "holdings",        "label": "Home",            "icon": "home",            "url": "/Holdings"},
+    {"key": "home",            "label": "Home",            "icon": "home",            "url": "/"},
+    {"key": "holdings",        "label": "Holdings",        "icon": "holdings",        "url": "/Holdings"},
     {"key": "performance",     "label": "Performance",     "icon": "performance",     "url": "/Performance"},
     {"key": "allocazione",     "label": "Allocazione",     "icon": "allocazione",     "url": "/Allocazione"},
     {"key": "andamento",       "label": "Andamento",       "icon": "andamento",       "url": "/Andamento"},
@@ -64,16 +68,23 @@ NAV_ITEMS: tuple[dict, ...] = (
 # libreria resta indipendente da Streamlit. La cache è condivisa tra tutte
 # le pagine (è globale a livello di app, non per pagina).
 
-@st.cache_data(show_spinner="Carico le transazioni…")
-def load_tx(path: str) -> pd.DataFrame:
-    """Wrapper cacheato di pf.load_transactions."""
-    return pf.load_transactions(path)
+@st.cache_data(show_spinner="Leggo il file delle operazioni…")
+def load_bundle(workbook_bytes: bytes) -> dict:
+    """Parsa il workbook caricato in un bundle di dati grezzi.
 
+    Apre UN solo pd.ExcelFile dai bytes e lo riusa per tutti i loader:
+    pd.read_excel accetta un ExcelFile e non lo 'consuma', quindi i moduli
+    core restano immutati e Streamlit-free. `bytes` è hashable → la cache
+    deduplica tra le pagine.
 
-@st.cache_data(show_spinner="Carico le impostazioni…")
-def load_settings(path: str) -> dict:
-    """Wrapper cacheato di pf.load_settings."""
-    return pf.load_settings(path)
+    Returns: {"tx": DataFrame, "settings": dict, "costs": dict}
+    """
+    xls = pd.ExcelFile(BytesIO(workbook_bytes))
+    return {
+        "tx": pf.load_transactions(xls),
+        "settings": pf.load_settings(xls),
+        "costs": cst.load_costs(xls),
+    }
 
 
 @st.cache_data(show_spinner="Scarico i prezzi da yfinance…")
@@ -89,38 +100,47 @@ def fetch_prices(tickers: tuple[str, ...], start: str) -> pd.DataFrame:
 # ENSURE DATA LOADED
 # --------------------------------------------------------------------------- #
 def ensure_data_loaded() -> tuple[pd.DataFrame, pd.DataFrame, dict]:
-    """Carica i dati base e li mette in session_state se non già presenti.
+    """Garantisce i dati in session_state, o rimanda alla Home.
 
-    Restituisce sempre (tx, prices, settings), così le pagine non devono
-    fare lookup espliciti su st.session_state.
-
-    Mettiamo in session_state solo i dati GREZZI (tx, prices, settings).
-    I dati derivati (holdings, value_series, twr…) li ricalcolano le pagine
-    che ne hanno bisogno: sono operazioni pandas pure, veloci, senza I/O.
-    Trade-off: qualche ms in più per pagina in cambio di zero rischi di
-    staleness e meno complessità mentale.
+    Unico punto d'ingresso dati. I bytes del workbook vivono in
+    session_state["workbook_bytes"], popolati dall'onboarding in app.py.
+    Mette in session_state i soli dati GREZZI (tx, prices, settings, costs);
+    i derivati li ricalcolano le pagine.
     """
-    if "tx" not in st.session_state:
-        if not TX_FILE.exists():
-            st.error(f"❌ File non trovato: `{TX_FILE}`")
-            st.info(
-                "Verifica che la cartella `data/` esista nella root del "
-                "progetto e contenga `transactions.xlsx`."
-            )
-            st.stop()
+    # Nessun dato (link diretto a pagina interna, o dopo "Cambia file"):
+    # rimanda alla Home, dove sta l'onboarding con upload/demo.
+    if "workbook_bytes" not in st.session_state:
+        st.switch_page("app.py")
 
-        tx = load_tx(str(TX_FILE))
-        settings = load_settings(str(TX_FILE))
+    if "tx" not in st.session_state:
+        bundle = load_bundle(st.session_state["workbook_bytes"])
+        tx = bundle["tx"]
+        settings = bundle["settings"]
 
         start = tx["date"].min().strftime("%Y-%m-%d")
         tickers = tuple(sorted(tx["ticker"].unique()))
-        prices = fetch_prices(tickers, start)
+        try:
+            prices = fetch_prices(tickers, start)
+        except Exception:
+            callout(
+                "Non riesco a scaricare i prezzi da yfinance in questo momento. "
+                "Riprova con <strong>🔄 Aggiorna prezzi</strong> nella sidebar.",
+                kind="danger",
+            )
+            st.stop()
+
+        if prices.empty:
+            callout(
+                "yfinance non ha restituito prezzi per i ticker del portafoglio. "
+                "Verifica che i ticker nel file siano corretti (es. VWCE.DE).",
+                kind="danger",
+            )
+            st.stop()
 
         st.session_state["tx"] = tx
         st.session_state["prices"] = prices
         st.session_state["settings"] = settings
-        # Salva l'ultima data prezzo per mostrarla in sidebar: aiuta l'utente
-        # a capire se i dati sono aggiornati senza dover aprire una pagina.
+        st.session_state["costs"] = bundle["costs"]
         st.session_state["prices_last_date"] = prices.index.max()
 
     return (
@@ -194,35 +214,36 @@ def render_sidebar(current_page: str = "") -> None:
         parts.append('</nav>')
         st.markdown("".join(parts), unsafe_allow_html=True)
 
-        # --- Sezione Dati (invariata) ---
-        st.divider()
-        st.header("⚙️ Dati")
+        # --- Sezione Dati (solo quando c'è un dataset caricato) ---
+        if "workbook_bytes" in st.session_state:
+            st.divider()
+            st.header("⚙️ Dati")
 
-        if TX_FILE.exists():
-            mtime = datetime.fromtimestamp(TX_FILE.stat().st_mtime)
-            st.caption(f"📁 `{TX_FILE.name}`")
-            st.caption(f"🕒 File aggiornato: {mtime:%d/%m/%Y %H:%M}")
+            source_name = st.session_state.get("source_name")
+            if source_name:
+                st.caption(f"📁 {source_name}")
+            if "prices_last_date" in st.session_state:
+                st.caption(f"📈 Prezzi al: {st.session_state['prices_last_date']:%d/%m/%Y}")
 
-        # Data dell'ultimo prezzo yfinance (salvata in session_state da
-        # ensure_data_loaded). Utile per capire se serve premere Ricarica.
-        if "prices_last_date" in st.session_state:
-            last_date = st.session_state["prices_last_date"]
-            st.caption(f"📈 Prezzi al: {last_date:%d/%m/%Y}")
+            # Due azioni distinte: aggiornare i prezzi ≠ cambiare file.
+            if st.button("🔄 Aggiorna prezzi", use_container_width=True,
+                         help="Ri-scarica i prezzi da yfinance mantenendo lo "
+                              "stesso file di operazioni"):
+                # refresh_cache() svuota prices_cache.parquet, poi le cache
+                # Streamlit; teniamo workbook_bytes → si ri-scaricano solo i prezzi.
+                pf.refresh_cache()
+                st.cache_data.clear()
+                for key in ("tx", "prices", "settings", "costs", "prices_last_date"):
+                    st.session_state.pop(key, None)
+                st.rerun()
 
-        if st.button("🔄 Ricarica dati", use_container_width=True,
-                     help="Forza il download da yfinance e ricarica l'Excel"):
-            # Ordine critico:
-            # 1) cancella la cache parquet di portfolio.py (prices_cache.parquet):
-            #    senza questo, fetch_prices vede i ticker già in cache e non
-            #    ri-scarica da yfinance, restituendo prezzi stale.
-            # 2) svuota la cache Streamlit di load_tx/load_settings/fetch_prices.
-            # 3) svuota session_state, altrimenti ensure_data_loaded trova
-            #    i dati vecchi al rerun e non li ricarica.
-            pf.refresh_cache()
-            st.cache_data.clear()
-            for key in ("tx", "prices", "settings", "prices_last_date"):
-                st.session_state.pop(key, None)
-            st.rerun()
+            if st.button("📁 Cambia file", use_container_width=True,
+                         help="Rimuovi i dati correnti e torna alla Home"):
+                st.cache_data.clear()
+                for key in ("tx", "prices", "settings", "costs",
+                            "prices_last_date", "workbook_bytes", "source_name"):
+                    st.session_state.pop(key, None)
+                st.switch_page("app.py")
 
 
 # --------------------------------------------------------------------------- #

@@ -20,7 +20,7 @@ from matplotlib.ticker import FuncFormatter
 import portfolio as pf
 import costs as cst
 import chart_style as cs
-from streamlit_utils import ensure_data_loaded, render_sidebar, TX_FILE, inject_css
+from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css
 from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
@@ -36,20 +36,10 @@ cs.apply_global_style()
 
 
 # --------------------------------------------------------------------------- #
-# CACHED LOADER DEI COSTI
+# CONFIGURAZIONE COSTI
 # --------------------------------------------------------------------------- #
-@st.cache_data(show_spinner="Carico configurazione costi…")
-def load_costs_cached(path: str) -> dict:
-    """Wrapper cacheato di cst.load_costs.
-
-    Lo definisco qui (e non in streamlit_utils.py) perché finora solo questa
-    pagina lo usa. Se in futuro la pagina Ribilanciamento ne avrà bisogno,
-    si centralizza.
-    """
-    return cst.load_costs(path)
-
-
-costs_cfg = load_costs_cached(str(TX_FILE))
+# I costi (TER, bollo reale) sono già nel bundle caricato da ensure_data_loaded.
+costs_cfg = st.session_state["costs"]
 
 # --------------------------------------------------------------------------- #
 # CALCOLI
