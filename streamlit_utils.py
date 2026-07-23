@@ -23,24 +23,26 @@ streamlit`), così continuano a funzionare nel notebook senza modifiche.
 """
 from __future__ import annotations
 
-from datetime import datetime
+import base64                      
 from functools import lru_cache
+from io import BytesIO             
 from pathlib import Path
 from textwrap import dedent
-from io import BytesIO   
+from html import escape
 
 import pandas as pd
 import streamlit as st
 
 import portfolio as pf
-import costs as cst            
-from streamlit_components import callout
+import costs as cst   
+import re                           
+
+from streamlit_components import callout         
 
 # --------------------------------------------------------------------------- #
 # CONFIG
 # --------------------------------------------------------------------------- #
-TX_FILE = Path("data/transactions.xlsx")
-ICONS_DIR = Path("assets/icons")
+ICONS_DIR = Path(__file__).resolve().parent / "assets" / "icons"
 PAGES_DIR = Path("pages")
 
 @lru_cache(maxsize=None)
@@ -59,18 +61,242 @@ def _page_path(slug: str) -> str:
 # gestito dal routing multi-page di Streamlit (derivato dal nome file in
 # pages/ dopo che Streamlit rimuove prefisso numerico, emoji e .py).
 NAV_ITEMS: tuple[dict, ...] = (
-    {"label": "Home",            "slug": None,             "icon": ":material/home:"},
-    {"label": "Holdings",        "slug": "Holdings",       "icon": ":material/account_balance_wallet:"},
-    {"label": "Performance",     "slug": "Performance",    "icon": ":material/trending_up:"},
-    {"label": "Allocazione",     "slug": "Allocazione",    "icon": ":material/donut_small:"},
-    {"label": "Andamento",       "slug": "Andamento",      "icon": ":material/show_chart:"},
-    {"label": "Vs benchmark",    "slug": "Benchmark",      "icon": ":material/leaderboard:"},
-    {"label": "Costi e fisco",   "slug": "Costi",          "icon": ":material/receipt_long:"},
-    {"label": "Ribilanciamento", "slug": "Ribilanciamento","icon": ":material/balance:"},
-    {"label": "Rischio",         "slug": "Rischio",        "icon": ":material/monitoring:"},
-    {"label": "Monte Carlo",     "slug": "Monte_Carlo",    "icon": ":material/casino:"},
+    {"label": "Home",            "slug": None,              "icon": "home"},
+    {"label": "Holdings",        "slug": "Holdings",        "icon": "holdings"},
+    {"label": "Performance",     "slug": "Performance",     "icon": "performance"},
+    {"label": "Allocazione",     "slug": "Allocazione",     "icon": "allocazione"},
+    {"label": "Andamento",       "slug": "Andamento",       "icon": "andamento"},
+    {"label": "Vs benchmark",    "slug": "Benchmark",       "icon": "benchmark"},
+    {"label": "Costi e fisco",   "slug": "Costi",           "icon": "costi"},
+    {"label": "Ribilanciamento", "slug": "Ribilanciamento", "icon": "ribilanciamento"},
+    {"label": "Rischio",         "slug": "Rischio",         "icon": "rischio"},
+    {"label": "Monte Carlo",     "slug": "Monte_Carlo",     "icon": "monte-carlo"},
 )
 
+@lru_cache(maxsize=None)
+def _page_path(slug: str) -> str:
+    """Risolve il file-pagina in pages/ che termina con _{slug}.py.
+
+    Evita di hardcodare numero/emoji del filename (fragili). Fallback ad
+    app.py se non trovato, così st.page_link non riceve mai un path invalido.
+    """
+    matches = sorted(PAGES_DIR.glob(f"*_{slug}.py"))
+    return str(matches[0]) if matches else "app.py"
+
+
+def _nav_key(item: dict) -> str:
+    """Chiave DOM stabile per una voce di nav.
+
+    st.container(key=X) rende un elemento con classe `st-key-X`: è un hook
+    pubblico e stabile, a differenza dei data-testid interni o del match
+    sull'href (che cambiano tra versioni di Streamlit).
+    """
+    base = "home" if item["slug"] is None else item["slug"]
+    return "nav_" + re.sub(r"[^a-z0-9]+", "_", base.lower())
+
+
+def _icon_url(svg: str, color: str) -> str:
+    """SVG → data URI con il colore già sostituito.
+
+    Le icone hanno stroke="currentColor": in un <img>/background-image
+    currentColor non si risolve, quindi lo rimpiazziamo a monte con
+    l'esadecimale desiderato e generiamo una variante per stato.
+    """
+    colored = svg.replace("currentColor", color)
+    b64 = base64.b64encode(colored.encode("utf-8")).decode("ascii")
+    return f'url("data:image/svg+xml;base64,{b64}")'
+
+
+def _nav_css(current_page: str) -> str:
+    """CSS della nav sidebar: design system + icone SVG custom.
+
+    Le icone sono background-image sull'<a> (non ::before + mask-image, che
+    non rendeva), con lo spazio riservato da padding-left. Tre varianti di
+    colore: slate default, navy su hover e sull'item attivo.
+
+    Due accortezze:
+    - i selettori sono costruiti con sel(), che applica il suffisso a OGNI
+      voce (f'{lista} p' lo attaccherebbe solo all'ultima);
+    - sugli anchor si usa SEMPRE background-color, mai la shorthand
+      background, che azzererebbe background-image.
+    """
+    SLATE, NAVY = "#94A3B8", "#0F4C81"
+    keys = [_nav_key(i) for i in NAV_ITEMS]
+
+    def sel(suffix: str = "") -> str:
+        return ", ".join(f".st-key-{k} a{suffix}" for k in keys)
+
+    r = [
+        # Container neutro
+        f'{", ".join(f".st-key-{k}" for k in keys)}{{background:transparent!important;'
+        f'border:none!important;padding:0!important;box-shadow:none!important;}}',
+        # Riga di nav (padding-left 44px = spazio per l'icona)
+        f'{sel()}{{display:flex!important;align-items:center!important;width:100%!important;'
+        f'padding:9px 12px 9px 44px!important;margin:1px 0!important;border-radius:6px!important;'
+        f'background-color:transparent!important;background-repeat:no-repeat!important;'
+        f'background-position:12px center!important;background-size:20px 20px!important;'
+        f'text-decoration:none!important;transition:background-color .15s ease!important;}}',
+        # Testo della label
+        f'{sel(" p")}, {sel(" span")}, {sel(" div")}{{font-size:14px!important;'
+        f'font-weight:500!important;color:#64748B!important;margin:0!important;'
+        f'line-height:1.35!important;letter-spacing:0!important;}}',
+        # Hover
+        f'{sel(":hover")}{{background-color:#F1F5F9!important;}}',
+        f'{sel(":hover p")}, {sel(":hover span")}{{color:{NAVY}!important;}}',
+    ]
+
+    # Icone: variante slate (default) + navy (hover), una regola per voce
+    for item in NAV_ITEMS:
+        k, svg = _nav_key(item), load_icon(item["icon"])
+        if not svg:
+            continue  # icona mancante (es. holdings.svg): voce senza icona
+        r.append(f'.st-key-{k} a{{background-image:{_icon_url(svg, SLATE)}!important;}}')
+        r.append(f'.st-key-{k} a:hover{{background-image:{_icon_url(svg, NAVY)}!important;}}')
+
+    # Stato attivo: sfondo bianco, barra navy, testo e icona navy
+    active = next(
+        (i for i in NAV_ITEMS
+         if ("home" if i["slug"] is None else i["slug"].lower()) == current_page),
+        None,
+    )
+    if active:
+        k, svg = _nav_key(active), load_icon(active["icon"])
+        r.append(f'.st-key-{k} a{{background-color:#FFFFFF!important;'
+                 f'box-shadow:inset 3px 0 0 {NAVY}!important;'
+                 f'border-radius:0 6px 6px 0!important;}}')
+        r.append(f'.st-key-{k} a p, .st-key-{k} a span, .st-key-{k} a div'
+                 f'{{color:{NAVY}!important;font-weight:600!important;}}')
+        if svg:
+            r.append(f'.st-key-{k} a{{background-image:{_icon_url(svg, NAVY)}!important;}}')
+
+    return "<style>" + "".join(r) + "</style>"
+
+def _btn_icon_css(key: str, icon: str, color: str, size: int = 17) -> str:
+    """Icona dentro un pulsante Streamlit, affiancata alla label.
+
+    Il testo del bottone sta in un <p>: lo rendiamo flex e ci attacchiamo
+    un ::before con l'icona, così icona e label restano centrate insieme.
+    """
+    svg = load_icon(icon)
+    if not svg:
+        return ""
+    return (f'.st-key-{key} button p{{display:flex!important;align-items:center!important;'
+            f'justify-content:center!important;gap:8px!important;}}'
+            f'.st-key-{key} button p::before{{content:""!important;flex:0 0 {size}px!important;'
+            f'width:{size}px!important;height:{size}px!important;'
+            f'background-image:{_icon_url(svg, color)}!important;'
+            f'background-repeat:no-repeat!important;background-position:center!important;'
+            f'background-size:contain!important;}}')
+
+
+def _sidebar_data_css() -> str:
+    """CSS della sezione 'Dati': header, righe info, due pulsanti.
+
+    Gerarchia visiva: 'Aggiorna prezzi' è primario (fill navy, azione
+    frequente), 'Cambia file' secondario (outline, azione rara e
+    distruttiva). Le righe info usano JetBrains Mono come i valori KPI.
+    """
+    NAVY, SLATE, WHITE = "#0F4C81", "#94A3B8", "#FFFFFF"
+    r = [
+        # Header "DATI"
+        '.pt-sb-head{display:flex;align-items:center;gap:8px;margin:4px 0 10px;}',
+        f'.pt-sb-head svg{{width:15px;height:15px;color:{SLATE};flex:0 0 15px;}}',
+        f'.pt-sb-head span{{font-family:"JetBrains Mono",monospace;font-size:11px;'
+        f'font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:{SLATE};}}',
+        # Righe info (file, data prezzi)
+        '.pt-sb-row{display:flex;align-items:center;gap:8px;margin:0 0 6px;}',
+        f'.pt-sb-row svg{{width:14px;height:14px;color:{SLATE};flex:0 0 14px;}}',
+        f'.pt-sb-row span{{font-family:"JetBrains Mono",monospace;font-size:11.5px;'
+        f'color:#64748B;line-height:1.4;overflow-wrap:anywhere;}}',
+        # Pulsante primario
+        f'.st-key-btn_prices button{{width:100%!important;background-color:{NAVY}!important;'
+        f'border:1px solid {NAVY}!important;border-radius:7px!important;'
+        f'padding:9px 12px!important;box-shadow:none!important;}}',
+        f'.st-key-btn_prices button p{{color:{WHITE}!important;font-size:13.5px!important;'
+        f'font-weight:600!important;}}',
+        '.st-key-btn_prices button:hover{background-color:#0D4270!important;'
+        'border-color:#0D4270!important;}',
+        # Pulsante secondario
+        f'.st-key-btn_file button{{width:100%!important;background-color:{WHITE}!important;'
+        f'border:1px solid #E2E8F0!important;border-radius:7px!important;'
+        f'padding:9px 12px!important;box-shadow:none!important;}}',
+        f'.st-key-btn_file button p{{color:{NAVY}!important;font-size:13.5px!important;'
+        f'font-weight:500!important;}}',
+        '.st-key-btn_file button:hover{background-color:#F8FAFC!important;'
+        'border-color:#CBD5E1!important;}',
+        # Icone dei pulsanti
+        _btn_icon_css("btn_prices", "refresh", WHITE),
+        _btn_icon_css("btn_file", "folder-open", NAVY),
+    ]
+    return "<style>" + "".join(x for x in r if x) + "</style>"
+
+def home_css() -> str:
+    """CSS della pagina Home (onboarding).
+
+    Copre: card contenitore, eyebrow, step numerati, pulsante primario di
+    download, restyle del file_uploader (testi in italiano), separatore
+    'oppure', card demo e nota finale.
+    """
+    NAVY, SLATE, WHITE, NAVY_H = "#0F4C81", "#94A3B8", "#FFFFFF", "#0D4270"
+    r = [
+        '.st-key-pt_card_data, .st-key-pt_card_demo{background:#FFFFFF!important;'
+        'border:1px solid #E2E8F0!important;border-radius:12px!important;'
+        'padding:26px 28px!important;margin-bottom:8px!important;}',
+        f'.pt-eyebrow{{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;'
+        f'letter-spacing:.11em;text-transform:uppercase;color:{SLATE};margin:0 0 18px;}}',
+        '.pt-steps{display:flex;flex-wrap:wrap;gap:14px 34px;margin:0 0 22px;}',
+        '.pt-step{display:flex;align-items:center;gap:10px;}',
+        f'.pt-step-n{{flex:0 0 28px;width:28px;height:28px;border-radius:50%;'
+        f'display:flex;align-items:center;justify-content:center;font-size:12.5px;'
+        f'font-weight:600;background:#F1F5F9;color:{SLATE};}}',
+        f'.pt-step-n.is-active{{background:{NAVY};color:{WHITE};}}',
+        '.pt-step-l{font-size:14.5px;color:#334155;font-weight:500;}',
+        f'.pt-help{{font-size:13px;color:{SLATE};margin:10px 0 0;}}',
+        '.pt-hr{height:1px;background:#E2E8F0;margin:22px 0;}',
+        '.pt-or{display:flex;align-items:center;gap:16px;margin:22px 0;}',
+        '.pt-or::before,.pt-or::after{content:"";flex:1;height:1px;background:#E2E8F0;}',
+        f'.pt-or span{{font-size:13px;color:{SLATE};}}',
+        '.pt-demo-t{font-size:15.5px;font-weight:600;color:#0F172A;margin:0 0 4px;}',
+        '.pt-demo-s{font-size:13.5px;color:#64748B;margin:0;}',
+        f'.pt-note{{font-size:12.5px;color:{SLATE};text-align:center;margin:18px 0 0;}}',
+        # Pulsante primario (download template)
+        f'.st-key-btn_template button{{background-color:{NAVY}!important;'
+        f'border:1px solid {NAVY}!important;border-radius:8px!important;'
+        f'padding:11px 20px!important;box-shadow:none!important;}}',
+        f'.st-key-btn_template button p{{color:{WHITE}!important;font-size:14.5px!important;'
+        f'font-weight:600!important;}}',
+        f'.st-key-btn_template button:hover{{background-color:{NAVY_H}!important;'
+        f'border-color:{NAVY_H}!important;}}',
+        # Pulsante demo (outline navy)
+        f'.st-key-btn_demo button{{width:100%!important;background-color:{WHITE}!important;'
+        f'border:1px solid {NAVY}!important;border-radius:8px!important;'
+        f'padding:11px 18px!important;box-shadow:none!important;}}',
+        f'.st-key-btn_demo button p{{color:{NAVY}!important;font-size:14.5px!important;'
+        f'font-weight:600!important;}}',
+        '.st-key-btn_demo button:hover{background-color:#F8FAFC!important;}',
+        # File uploader: dropzone tratteggiata
+        '.st-key-pt_upload [data-testid="stFileUploaderDropzone"]{'
+        'background:#F8FAFC!important;border:1.5px dashed #CBD5E1!important;'
+        'border-radius:10px!important;padding:20px 22px!important;}',
+        '.st-key-pt_upload [data-testid="stFileUploaderDropzone"]:hover{'
+        'border-color:#94A3B8!important;}',
+        # Testi in italiano: azzero l'originale inglese e inserisco il mio
+        '.st-key-pt_upload [data-testid="stFileUploaderDropzoneInstructions"] > div{'
+        'font-size:0!important;line-height:0!important;}',
+        '.st-key-pt_upload [data-testid="stFileUploaderDropzoneInstructions"] > div::after{'
+        'content:"Trascina qui il file compilato\\A XLSX · max 200MB";white-space:pre-line;'
+        'display:block;font-size:14.5px!important;line-height:1.45!important;'
+        'color:#334155!important;font-weight:500;}',
+        '.st-key-pt_upload [data-testid="stFileUploaderDropzone"] button{'
+        'font-size:0!important;background:#FFFFFF!important;border:1px solid #E2E8F0!important;'
+        'border-radius:7px!important;padding:9px 16px!important;box-shadow:none!important;}',
+        f'.st-key-pt_upload [data-testid="stFileUploaderDropzone"] button::after{{'
+        f'content:"Sfoglia file";font-size:13.5px!important;font-weight:500!important;'
+        f'color:{NAVY}!important;}}',
+        _btn_icon_css("btn_template", "download", WHITE, size=18),
+        _btn_icon_css("btn_demo", "play-circle", NAVY, size=18),
+    ]
+    return "<style>" + "".join(x for x in r if x) + "</style>"
 
 # --------------------------------------------------------------------------- #
 # CACHED LOADERS
@@ -210,48 +436,62 @@ def render_sidebar(current_page: str = "") -> None:
     Va chiamata da ogni pagina dopo `inject_css()` ed `ensure_data_loaded()`.
     """
     with st.sidebar:
+        # CSS della nav (design system + icone SVG via mask-image)
+        st.markdown(_nav_css(current_page), unsafe_allow_html=True)
+
+
         # --- Brand ---
         st.markdown('<div class="pt-brand">Portfolio<br>Tracker</div>',
                     unsafe_allow_html=True)
 
-        # --- Nav: st.page_link = navigazione CLIENT-SIDE che PRESERVA
-        #     st.session_state. I vecchi <a href> facevano un full reload,
-        #     azzerando la sessione (e con essa i dati da upload/demo). ---
+        # --- Nav: st.page_link (client-side, PRESERVA session_state).
+        #     I vecchi <a href> facevano un full reload azzerando la sessione.
+        #     Niente icon=: le icone arrivano dal CSS sopra. ---
         for item in NAV_ITEMS:
             page = "app.py" if item["slug"] is None else _page_path(item["slug"])
-            st.page_link(page, label=item["label"], icon=item["icon"],
-                         use_container_width=True)
+            # Il container con key= crea la classe st-key-* su cui aggancia il CSS.
+            with st.container(key=_nav_key(item)):
+                st.page_link(page, label=item["label"])
 
-        # --- Sezione Dati (solo quando c'è un dataset caricato) ---
+        # --- Sezione Dati (solo con un dataset caricato) ---
         if "workbook_bytes" in st.session_state:
+            st.markdown(_sidebar_data_css(), unsafe_allow_html=True)
             st.divider()
-            st.header("⚙️ Dati")
 
+            # Header + righe info: SVG inline, così ereditano il colore dal CSS.
+            rows = [f'<div class="pt-sb-head">{load_icon("settings")}<span>Dati</span></div>']
             source_name = st.session_state.get("source_name")
             if source_name:
-                st.caption(f"📁 {source_name}")
+                rows.append(f'<div class="pt-sb-row">{load_icon("file-data")}'
+                            f'<span>{escape(source_name)}</span></div>')
             if "prices_last_date" in st.session_state:
-                st.caption(f"📈 Prezzi al: {st.session_state['prices_last_date']:%d/%m/%Y}")
+                d = st.session_state["prices_last_date"]
+                rows.append(f'<div class="pt-sb-row">{load_icon("price-clock")}'
+                            f'<span>Prezzi al {d:%d/%m/%Y}</span></div>')
+            st.markdown("".join(rows), unsafe_allow_html=True)
 
-            # Due azioni distinte: aggiornare i prezzi ≠ cambiare file.
-            if st.button("🔄 Aggiorna prezzi", use_container_width=True,
-                         help="Ri-scarica i prezzi da yfinance mantenendo lo "
-                              "stesso file di operazioni"):
-                # refresh_cache() svuota prices_cache.parquet, poi le cache
-                # Streamlit; teniamo workbook_bytes → si ri-scaricano solo i prezzi.
-                pf.refresh_cache()
-                st.cache_data.clear()
-                for key in ("tx", "prices", "settings", "costs", "prices_last_date"):
-                    st.session_state.pop(key, None)
-                st.rerun()
+            st.write("")  # micro-spaziatura prima dei pulsanti
 
-            if st.button("📁 Cambia file", use_container_width=True,
-                         help="Rimuovi i dati correnti e torna alla Home"):
-                st.cache_data.clear()
-                for key in ("tx", "prices", "settings", "costs",
-                            "prices_last_date", "workbook_bytes", "source_name"):
-                    st.session_state.pop(key, None)
-                st.switch_page("app.py")
+            # Primario: azione frequente. Il container key= aggancia il CSS.
+            with st.container(key="btn_prices"):
+                if st.button("Aggiorna prezzi",
+                             help="Ri-scarica i prezzi da yfinance mantenendo "
+                                  "lo stesso file di operazioni"):
+                    pf.refresh_cache()
+                    st.cache_data.clear()
+                    for key in ("tx", "prices", "settings", "costs", "prices_last_date"):
+                        st.session_state.pop(key, None)
+                    st.rerun()
+
+            # Secondario: azione rara e distruttiva.
+            with st.container(key="btn_file"):
+                if st.button("Cambia file",
+                             help="Rimuovi i dati correnti e torna alla Home"):
+                    st.cache_data.clear()
+                    for key in ("tx", "prices", "settings", "costs",
+                                "prices_last_date", "workbook_bytes", "source_name"):
+                        st.session_state.pop(key, None)
+                    st.switch_page("app.py")
 
 
 # --------------------------------------------------------------------------- #

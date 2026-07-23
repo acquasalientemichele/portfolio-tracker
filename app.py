@@ -24,7 +24,7 @@ import streamlit as st
 
 import portfolio as pf
 import template as tpl
-from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css, load_bundle
+from streamlit_utils import ensure_data_loaded, render_sidebar, inject_css, load_bundle, home_css
 from streamlit_components import kpi_card, callout
 
 # --------------------------------------------------------------------------- #
@@ -77,50 +77,87 @@ def _try_load(raw: bytes, source_name: str) -> None:
 # STATO 1: ONBOARDING (nessun dato caricato)
 # --------------------------------------------------------------------------- #
 def render_onboarding() -> None:
-    """Landing pre-caricamento: presentazione + 3 passi + download + upload + demo."""
+    """Landing pre-caricamento.
+
+    Struttura: card "Usa i tuoi dati" (step numerati → download template →
+    uploader) e, separata da un "oppure", la card della modalità demo.
+    Il percorso principale è visivamente dominante; la demo resta un'uscita
+    laterale per chi vuole solo dare un'occhiata.
+    """
+    st.markdown(home_css(), unsafe_allow_html=True)
+
     st.title("Portfolio Tracker")
     st.caption(
         "Monitora il tuo portafoglio ETF — performance, allocazione, costi, "
         "rischio e proiezioni — partendo da un semplice file Excel."
     )
+    st.write("")
 
-    callout(
-        "<strong>Come funziona.</strong> Tre passi: scarichi il template, ci "
-        "inserisci le tue operazioni, lo ricarichi qui. I dati restano nella "
-        "sessione del tuo browser e non vengono salvati sul server.",
-        kind="info",
-    )
+    # ---------------------------- CARD: usa i tuoi dati ---------------------
+    with st.container(key="pt_card_data"):
+        st.markdown('<div class="pt-eyebrow">Usa i tuoi dati</div>',
+                    unsafe_allow_html=True)
 
-    st.subheader("1 · Scarica il template")
-    st.write(
-        "Un file Excel con i fogli già pronti (operazioni, impostazioni, TER, "
-        "bollo). Le prime due righe del foglio operazioni sono esempi da sostituire."
-    )
-    st.download_button(
-        "⬇️  Scarica transactions_template.xlsx",
-        data=tpl.build_template_workbook(),
-        file_name="transactions_template.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+        steps = [("1", "Scarica il template", True),
+                 ("2", "Compila le operazioni", False),
+                 ("3", "Carica il file", False)]
+        st.markdown(
+            '<div class="pt-steps">' + "".join(
+                f'<div class="pt-step">'
+                f'<span class="pt-step-n{" is-active" if act else ""}">{n}</span>'
+                f'<span class="pt-step-l">{lab}</span></div>'
+                for n, lab, act in steps
+            ) + '</div>',
+            unsafe_allow_html=True,
+        )
 
-    st.subheader("2 · Inserisci le tue operazioni")
-    st.write(
-        "Nel foglio **transactions** aggiungi ogni acquisto/vendita (data, "
-        "ticker, ISIN, quantità, prezzo, commissioni). Nel foglio **settings** "
-        "imposti valuta base, benchmark e allocazione target."
-    )
+        with st.container(key="btn_template"):
+            st.download_button(
+                "Scarica transactions_template.xlsx",
+                data=tpl.build_template_workbook(),
+                file_name="transactions_template.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        st.markdown(
+            '<p class="pt-help">Fogli già pronti — operazioni, impostazioni, TER, '
+            'bollo. Le prime due righe di esempio vanno sostituite.</p>',
+            unsafe_allow_html=True,
+        )
 
-    st.subheader("3 · Carica il file")
-    uploaded = st.file_uploader(
-        "Carica il tuo file .xlsx", type=["xlsx"], label_visibility="collapsed"
-    )
-    if uploaded is not None:
-        _try_load(uploaded.getvalue(), source_name=uploaded.name)
+        st.markdown('<div class="pt-hr"></div>', unsafe_allow_html=True)
 
-    st.divider()
-    st.caption("Vuoi solo dare un'occhiata senza compilare nulla?")
-    if st.button("▶️  Prova con dati demo"):
-        _try_load(tpl.build_demo_workbook(), source_name="Dati demo")
+        with st.container(key="pt_upload"):
+            uploaded = st.file_uploader(
+                "Carica il tuo file .xlsx", type=["xlsx"],
+                label_visibility="collapsed",
+            )
+        if uploaded is not None:
+            _try_load(uploaded.getvalue(), source_name=uploaded.name)
+
+    # ---------------------------- SEPARATORE --------------------------------
+    st.markdown('<div class="pt-or"><span>oppure</span></div>',
+                unsafe_allow_html=True)
+
+    # ---------------------------- CARD: demo --------------------------------
+    with st.container(key="pt_card_demo"):
+        col_txt, col_btn = st.columns([3, 1.35], vertical_alignment="center")
+        with col_txt:
+            st.markdown(
+                '<p class="pt-demo-t">Vuoi solo dare un\'occhiata?</p>'
+                '<p class="pt-demo-s">Esplora l\'app con un portafoglio demo '
+                'precompilato — nessun file richiesto.</p>',
+                unsafe_allow_html=True,
+            )
+        with col_btn:
+            with st.container(key="btn_demo"):
+                if st.button("Prova con dati demo"):
+                    _try_load(tpl.build_demo_workbook(), source_name="Dati demo")
+
+    st.markdown(
+        '<p class="pt-note">I dati restano nella sessione del browser '
+        'e non vengono salvati sul server.</p>',
+        unsafe_allow_html=True,
+    )
 
 
 # --------------------------------------------------------------------------- #
