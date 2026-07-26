@@ -64,12 +64,12 @@ NAV_ITEMS: tuple[dict, ...] = (
     {"label": "Home",            "slug": None,              "icon": "home"},
     {"label": "Holdings",        "slug": "Holdings",        "icon": "holdings"},
     {"label": "Performance",     "slug": "Performance",     "icon": "performance"},
-    {"label": "Allocazione",     "slug": "Allocazione",     "icon": "allocazione"},
-    {"label": "Andamento",       "slug": "Andamento",       "icon": "andamento"},
+    {"label": "Allocation",      "slug": "Allocazione",     "icon": "allocazione"},
+    {"label": "Value over time", "slug": "Andamento",       "icon": "andamento"},
     {"label": "Vs benchmark",    "slug": "Benchmark",       "icon": "benchmark"},
-    {"label": "Costi e fisco",   "slug": "Costi",           "icon": "costi"},
-    {"label": "Ribilanciamento", "slug": "Ribilanciamento", "icon": "ribilanciamento"},
-    {"label": "Rischio",         "slug": "Rischio",         "icon": "rischio"},
+    {"label": "Costs & tax",     "slug": "Costi",           "icon": "costi"},
+    {"label": "Rebalancing",     "slug": "Ribilanciamento", "icon": "ribilanciamento"},
+    {"label": "Risk",            "slug": "Rischio",         "icon": "rischio"},
     {"label": "Monte Carlo",     "slug": "Monte_Carlo",     "icon": "monte-carlo"},
 )
 
@@ -284,14 +284,14 @@ def home_css() -> str:
         '.st-key-pt_upload [data-testid="stFileUploaderDropzoneInstructions"] > div{'
         'font-size:0!important;line-height:0!important;}',
         '.st-key-pt_upload [data-testid="stFileUploaderDropzoneInstructions"] > div::after{'
-        'content:"Trascina qui il file compilato\\A XLSX · max 200MB";white-space:pre-line;'
+        'content:"Drag and drop your file here\\A XLSX · max 200MB";white-space:pre-line;'
         'display:block;font-size:14.5px!important;line-height:1.45!important;'
         'color:#334155!important;font-weight:500;}',
         '.st-key-pt_upload [data-testid="stFileUploaderDropzone"] button{'
         'font-size:0!important;background:#FFFFFF!important;border:1px solid #E2E8F0!important;'
         'border-radius:7px!important;padding:9px 16px!important;box-shadow:none!important;}',
         f'.st-key-pt_upload [data-testid="stFileUploaderDropzone"] button::after{{'
-        f'content:"Sfoglia file";font-size:13.5px!important;font-weight:500!important;'
+        f'content:"Browse files";font-size:13.5px!important;font-weight:500!important;'
         f'color:{NAVY}!important;}}',
         _btn_icon_css("btn_template", "download", WHITE, size=18),
         _btn_icon_css("btn_demo", "play-circle", NAVY, size=18),
@@ -360,16 +360,16 @@ def ensure_data_loaded() -> tuple[pd.DataFrame, pd.DataFrame, dict]:
             prices = fetch_prices(tickers, start)
         except Exception:
             callout(
-                "Non riesco a scaricare i prezzi da yfinance in questo momento. "
-                "Riprova con <strong>🔄 Aggiorna prezzi</strong> nella sidebar.",
+                "Couldn't download prices from yfinance right now. "
+                "Try again with <strong>Refresh prices</strong> in the sidebar.",
                 kind="danger",
             )
             st.stop()
 
         if prices.empty:
             callout(
-                "yfinance non ha restituito prezzi per i ticker del portafoglio. "
-                "Verifica che i ticker nel file siano corretti (es. VWCE.DE).",
+                "yfinance returned no prices for the portfolio tickers. "
+                "Check that the tickers in your file are correct. ",
                 kind="danger",
             )
             st.stop()
@@ -459,7 +459,7 @@ def render_sidebar(current_page: str = "") -> None:
             st.divider()
 
             # Header + righe info: SVG inline, così ereditano il colore dal CSS.
-            rows = [f'<div class="pt-sb-head">{load_icon("settings")}<span>Dati</span></div>']
+            rows = [f'<div class="pt-sb-head">{load_icon("settings")}<span>Data</span></div>']
             source_name = st.session_state.get("source_name")
             if source_name:
                 rows.append(f'<div class="pt-sb-row">{load_icon("file-data")}'
@@ -467,16 +467,16 @@ def render_sidebar(current_page: str = "") -> None:
             if "prices_last_date" in st.session_state:
                 d = st.session_state["prices_last_date"]
                 rows.append(f'<div class="pt-sb-row">{load_icon("price-clock")}'
-                            f'<span>Prezzi al {d:%d/%m/%Y}</span></div>')
+                            f'<span>Prices as of {d:%d/%m/%Y}</span></div>')
             st.markdown("".join(rows), unsafe_allow_html=True)
 
             st.write("")  # micro-spaziatura prima dei pulsanti
 
             # Primario: azione frequente. Il container key= aggancia il CSS.
             with st.container(key="btn_prices"):
-                if st.button("Aggiorna prezzi",
-                             help="Ri-scarica i prezzi da yfinance mantenendo "
-                                  "lo stesso file di operazioni"):
+                if st.button("Refresh prices",
+                             help="Download again prices from yfinance, keeping "
+                                  "the same transactions file"):
                     pf.refresh_cache()
                     st.cache_data.clear()
                     for key in ("tx", "prices", "settings", "costs", "prices_last_date"):
@@ -485,8 +485,8 @@ def render_sidebar(current_page: str = "") -> None:
 
             # Secondario: azione rara e distruttiva.
             with st.container(key="btn_file"):
-                if st.button("Cambia file",
-                             help="Rimuovi i dati correnti e torna alla Home"):
+                if st.button("Change file",
+                             help="Clear the current data and return to the Home page"):
                     st.cache_data.clear()
                     for key in ("tx", "prices", "settings", "costs",
                                 "prices_last_date", "workbook_bytes", "source_name"):

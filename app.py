@@ -30,7 +30,7 @@ from streamlit_components import kpi_card, callout
 # --------------------------------------------------------------------------- #
 # PAGE CONFIG + CHROME
 # --------------------------------------------------------------------------- #
-st.set_page_config(page_title="Portfolio Tracker", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Portfolio Tracker", layout="wide")
 inject_css()
 render_sidebar(current_page="home")
 
@@ -49,12 +49,12 @@ def _try_load(raw: bytes, source_name: str) -> None:
     try:
         bundle = load_bundle(raw)
     except ValueError as e:
-        callout(f"Il file non è valido: {escape(str(e))}", kind="danger")
+        callout(f"The file is not valid: {escape(str(e))}", kind="danger")
         return
     except Exception:
         callout(
-            "Non riesco a leggere il file. Assicurati che sia un <strong>.xlsx</strong> "
-            "con i fogli del template (almeno <strong>transactions</strong> e "
+            "Couldn't read the file. Make sure it's an <strong>.xlsx</strong> "
+            "with the template sheets (at least <strong>transactions</strong> and "
             "<strong>settings</strong>).",
             kind="danger",
         )
@@ -62,8 +62,8 @@ def _try_load(raw: bytes, source_name: str) -> None:
 
     if bundle["tx"].empty:
         callout(
-            "Il file non contiene operazioni. Compila il foglio "
-            "<strong>transactions</strong> prima di caricarlo.",
+            "The file contains no transactions. Fill in the "
+            "<strong>transactions</strong> sheet before uploading it.",
             kind="warning",
         )
         return
@@ -88,19 +88,19 @@ def render_onboarding() -> None:
 
     st.title("Portfolio Tracker")
     st.caption(
-        "Monitora il tuo portafoglio ETF — performance, allocazione, costi, "
-        "rischio e proiezioni — partendo da un semplice file Excel."
+        "Track your ETF portfolio — performance, allocation, costs, risk and "
+        "projections — starting from a simple Excel file."
     )
     st.write("")
 
     # ---------------------------- CARD: usa i tuoi dati ---------------------
     with st.container(key="pt_card_data"):
-        st.markdown('<div class="pt-eyebrow">Usa i tuoi dati</div>',
+        st.markdown('<div class="pt-eyebrow">Use your own data</div>',
                     unsafe_allow_html=True)
 
-        steps = [("1", "Scarica il template", True),
-                 ("2", "Compila le operazioni", False),
-                 ("3", "Carica il file", False)]
+        steps = [("1", "Download the template", True),
+                 ("2", "Fill in your transactions", False),
+                 ("3", "Upload the file", False)]
         st.markdown(
             '<div class="pt-steps">' + "".join(
                 f'<div class="pt-step">'
@@ -113,14 +113,14 @@ def render_onboarding() -> None:
 
         with st.container(key="btn_template"):
             st.download_button(
-                "Scarica transactions_template.xlsx",
+                "Download transactions_template.xlsx",
                 data=tpl.build_template_workbook(),
                 file_name="transactions_template.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
         st.markdown(
-            '<p class="pt-help">Fogli già pronti — operazioni, impostazioni, TER, '
-            'bollo. Le prime due righe di esempio vanno sostituite.</p>',
+            '<p class="pt-help">Sheets ready to go — transactions, settings, TER, '
+            'stamp duty. The first two example rows should be replaced.</p>',
             unsafe_allow_html=True,
         )
 
@@ -128,14 +128,14 @@ def render_onboarding() -> None:
 
         with st.container(key="pt_upload"):
             uploaded = st.file_uploader(
-                "Carica il tuo file .xlsx", type=["xlsx"],
+                "Upload your .xlsx file", type=["xlsx"],
                 label_visibility="collapsed",
             )
         if uploaded is not None:
             _try_load(uploaded.getvalue(), source_name=uploaded.name)
 
     # ---------------------------- SEPARATORE --------------------------------
-    st.markdown('<div class="pt-or"><span>oppure</span></div>',
+    st.markdown('<div class="pt-or"><span>or</span></div>',
                 unsafe_allow_html=True)
 
     # ---------------------------- CARD: demo --------------------------------
@@ -143,19 +143,19 @@ def render_onboarding() -> None:
         col_txt, col_btn = st.columns([3, 1.35], vertical_alignment="center")
         with col_txt:
             st.markdown(
-                '<p class="pt-demo-t">Vuoi solo dare un\'occhiata?</p>'
-                '<p class="pt-demo-s">Esplora l\'app con un portafoglio demo '
-                'precompilato — nessun file richiesto.</p>',
+                '<p class="pt-demo-t">Just want to take a look?</p>'
+                '<p class="pt-demo-s">Explore the app with a pre-filled demo '
+                'portfolio — no file required.</p>',
                 unsafe_allow_html=True,
             )
         with col_btn:
             with st.container(key="btn_demo"):
-                if st.button("Prova con dati demo"):
-                    _try_load(tpl.build_demo_workbook(), source_name="Dati demo")
+                if st.button("Try with sample data"):
+                    _try_load(tpl.build_demo_workbook(), source_name="Sample Data")
 
     st.markdown(
-        '<p class="pt-note">I dati restano nella sessione del browser '
-        'e non vengono salvati sul server.</p>',
+        '<p class="pt-note">Your data stays in the browser session '
+        'and is never saved on the server.</p>',
         unsafe_allow_html=True,
     )
 
@@ -174,15 +174,15 @@ tx, prices, settings = ensure_data_loaded()
 
 st.title("Portfolio Tracker")
 st.caption(
-    f"Sorgente: {st.session_state.get('source_name', '—')}  ·  "
-    f"dati al {prices.index[-1]:%d/%m/%Y}"
+    f"Source: {st.session_state.get('source_name', '—')}  ·  "
+    f"data as of {prices.index[-1]:%d/%m/%Y}"
 )
 
 callout(
-    "Usa la <strong>navigazione a sinistra</strong> per esplorare Holdings, "
-    "Performance, Allocazione, Andamento, Vs Benchmark, Costi, Ribilanciamento, "
-    "Rischio e Monte Carlo. Con <strong>📁 Cambia file</strong> nella sidebar "
-    "carichi un altro portafoglio.",
+    "Use the <strong>left-hand navigation</strong> to explore Holdings, "
+    "Performance, Allocation, Value over time, Vs benchmark, Costs &amp; tax, "
+    "Rebalancing, Risk and Monte Carlo. Use <strong>Change file</strong> in the "
+    "sidebar to load a different portfolio.",
     kind="info",
 )
 
@@ -191,7 +191,7 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # SINTESI (mini-anteprima; il dettaglio è in Holdings)
 # --------------------------------------------------------------------------- #
-st.subheader("Sintesi")
+st.subheader("Summary")
 
 holdings = pf.compute_holdings(tx)
 holdings_valued = pf.value_holdings(holdings, prices)
@@ -203,9 +203,9 @@ pnl_pct = pnl_eur / invested if invested else 0.0
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    kpi_card("Capitale investito", f"{invested:,.2f} €")
+    kpi_card("Invested capital", f"{invested:,.2f} €")
 with col2:
-    kpi_card("Valore di mercato", f"{market_value:,.2f} €")
+    kpi_card("Market value", f"{market_value:,.2f} €")
 with col3:
     kpi_card(
         "P&L",
@@ -214,9 +214,9 @@ with col3:
         delta_kind="positive" if pnl_eur >= 0 else "negative",
     )
 with col4:
-    kpi_card("N° posizioni", f"{len(holdings_valued)}")
+    kpi_card("Positions", f"{len(holdings_valued)}")
 
 st.caption(
-    f"📅 Dati al {prices.index[-1]:%d/%m/%Y}  ·  "
-    f"📈 {len(tx)} operazioni dal {tx['date'].min():%d/%m/%Y}"
+    f"Data as of {prices.index[-1]:%d/%m/%Y}  ·  "
+    f" {len(tx)} transactions since {tx['date'].min():%d/%m/%Y}"
 )
