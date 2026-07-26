@@ -1,5 +1,5 @@
 """
-4_💰_Andamento.py — Andamento del valore del portafoglio nel tempo.
+4_Andamento.py — Andamento del valore del portafoglio nel tempo.
 
 Mostra come è cresciuto (o decresciuto) il valore di mercato rispetto al
 capitale investito cumulato. L'area shaded tra le due linee è il P&L

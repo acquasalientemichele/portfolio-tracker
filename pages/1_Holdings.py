@@ -1,5 +1,5 @@
 """
-1_📊_Holdings.py — Posizioni correnti del portafoglio.
+1_Holdings.py — Posizioni correnti del portafoglio.
 
 In Streamlit multi-page (cartella `pages/`), il prefisso numerico definisce
 l'ordine in sidebar e viene rimosso dal display. Le emoji nel nome file

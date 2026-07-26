@@ -1,5 +1,5 @@
 """
-5_🏆_Benchmark.py — Performance del portafoglio vs benchmark.
+5_Benchmark.py — Performance del portafoglio vs benchmark.
 
 Tre serie a confronto, tutte normalizzate a 1.0 al primo giorno di
 operatività:

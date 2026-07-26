@@ -1,5 +1,5 @@
 """
-6_💸_Costi.py — Riepilogo costi e fiscalità del portafoglio.
+6_Costi.py — Riepilogo costi e fiscalità del portafoglio.
 
 Mostra la cascata dal P&L lordo al P&L netto netto, sottraendo:
 - Commissioni TR (cash effettivo)

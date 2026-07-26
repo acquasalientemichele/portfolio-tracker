@@ -1,5 +1,5 @@
 """
-7_⚖️_Ribilanciamento.py — Suggerimento di ribilanciamento PAC.
+7_Ribilanciamento.py — Suggerimento di ribilanciamento PAC.
 
 Prima pagina interattiva dell'app: l'utente inserisce l'importo del prossimo
 versamento e ottiene la proposta di allocazione + la proiezione di convergenza

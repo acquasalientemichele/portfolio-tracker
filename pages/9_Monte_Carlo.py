@@ -1,5 +1,5 @@
 """
-9_🎲_Monte_Carlo.py — Proiezioni PAC a lungo periodo.
+9_Monte_Carlo.py — Proiezioni PAC a lungo periodo.
 
 Simulazione Monte Carlo di N path futuri del portafoglio con:
 - Calibrazione: bootstrap IID dai rendimenti storici del portafoglio target

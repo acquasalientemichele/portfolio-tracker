@@ -1,5 +1,5 @@
 """
-8_📉_Rischio.py — Metriche di rischio del portafoglio.
+8_Rischio.py — Metriche di rischio del portafoglio.
 
 Mostra:
 - Confidence badge (affidabilità delle metriche in base alla storia)

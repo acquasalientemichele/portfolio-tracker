@@ -1,5 +1,5 @@
 """
-2_📈_Performance.py — Performance complessiva del portafoglio.
+2_Performance.py — Performance complessiva del portafoglio.
 
 Mostra TWR (rendimento dello strumento, timing-neutral) e MWR/IRR
 (rendimento effettivo, dipendente dal timing dei versamenti), con

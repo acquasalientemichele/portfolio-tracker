@@ -1,5 +1,5 @@
 """
-3_🎯_Allocazione.py — Pesi correnti vs target.
+3_Allocazione.py — Pesi correnti vs target.
 
 Mostra:
 - Allocazione corrente del portafoglio (donut chart)
