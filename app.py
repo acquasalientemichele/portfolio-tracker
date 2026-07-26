@@ -38,7 +38,7 @@ render_sidebar(current_page="home")
 # --------------------------------------------------------------------------- #
 # HELPER: VALIDAZIONE E CARICAMENTO
 # --------------------------------------------------------------------------- #
-def _try_load(raw: bytes, source_name: str) -> None:
+def _try_load(raw: bytes, source_name: str, demo: bool = False) -> None:
     """Valida i bytes del workbook e, se ok, li salva in sessione e ricarica.
 
     Sfrutta i validatori reali: load_bundle → pf.load_transactions solleva
@@ -70,6 +70,7 @@ def _try_load(raw: bytes, source_name: str) -> None:
 
     st.session_state["workbook_bytes"] = raw
     st.session_state["source_name"] = source_name
+    st.session_state["is_demo"] = demo
     st.rerun()
 
 
@@ -151,7 +152,7 @@ def render_onboarding() -> None:
         with col_btn:
             with st.container(key="btn_demo"):
                 if st.button("Try with sample data"):
-                    _try_load(tpl.build_demo_workbook(), source_name="Sample Data")
+                    _try_load(tpl.build_demo_workbook(), source_name="Sample data", demo = True)
 
     st.markdown(
         '<p class="pt-note">Your data stays in the browser session '
@@ -178,13 +179,26 @@ st.caption(
     f"data as of {prices.index[-1]:%d/%m/%Y}"
 )
 
-callout(
-    "Use the <strong>left-hand navigation</strong> to explore Holdings, "
-    "Performance, Allocation, Value over time, Vs benchmark, Costs &amp; tax, "
-    "Rebalancing, Risk and Monte Carlo. Use <strong>Change file</strong> in the "
-    "sidebar to load a different portfolio.",
-    kind="info",
-)
+if st.session_state.get("is_demo"):
+    callout(
+        "<strong>Sample portfolio.</strong> A simple recurring-investment plan "
+        "(dollar-cost averaging): €500 invested monthly in a global all-world ETF "
+        "(VWCE), plus two €1,500 yearly contributions — one in June into a US "
+        "S&amp;P 500 ETF, one in December into a European ETF, echoing Italy's "
+        "<em>quattordicesima</em> and <em>tredicesima</em> salary bonuses. "
+        "Around €9,000 per year over roughly seven years. Use the "
+        "<strong>left-hand navigation</strong> to explore, or <strong>Change file</strong> "
+        "to load your own.",
+        kind="info",
+    )
+else:
+    callout(
+        "Use the <strong>left-hand navigation</strong> to explore Holdings, "
+        "Performance, Allocation, Value over time, Vs benchmark, Costs &amp; tax, "
+        "Rebalancing, Risk and Monte Carlo. Use <strong>Change file</strong> in the "
+        "sidebar to load a different portfolio.",
+        kind="info",
+    )
 
 st.divider()
 
