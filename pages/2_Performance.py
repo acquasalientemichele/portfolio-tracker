@@ -146,7 +146,7 @@ ps.add_endline_annotations(fig, [
 ps.apply_layout(
     fig,
     title="Time-Weighted Return",
-    ssubtitle="Cumulative gross return of the instruments, "
+    subtitle="Cumulative gross return of the instruments, "
              "independent of contribution timing",
     source="Source: Yahoo Finance · computed with portfolio.py",
 )
