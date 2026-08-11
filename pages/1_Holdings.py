@@ -1,14 +1,5 @@
-"""
-1_Holdings.py — Posizioni correnti del portafoglio.
+"""Holdings — current positions, per-ticker P&L and portfolio weights."""
 
-In Streamlit multi-page (cartella `pages/`), il prefisso numerico definisce
-l'ordine in sidebar e viene rimosso dal display. Le emoji nel nome file
-appaiono nella navigazione.
-
-Questa pagina mostra:
-- 4 metriche di sintesi (investito, valore, P&L, n° posizioni)
-- Tabella dettagliata per ticker con formattazione per colonna
-"""
 from __future__ import annotations
 
 import streamlit as st
@@ -20,7 +11,7 @@ from streamlit_components import kpi_card
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
-st.set_page_config(page_title="Holdings", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Holdings", layout="wide")
 
 inject_css()
 
@@ -30,8 +21,6 @@ render_sidebar(current_page="holdings")
 # --------------------------------------------------------------------------- #
 # CALCOLI
 # --------------------------------------------------------------------------- #
-# Sono operazioni pandas pure, < 100ms. Le ricalcoliamo ad ogni rerun
-# invece di cacheare: meno complessità, zero rischio staleness.
 holdings = pf.compute_holdings(tx)
 holdings_valued = pf.value_holdings(holdings, prices)
 
@@ -39,7 +28,7 @@ holdings_valued = pf.value_holdings(holdings, prices)
 # HEADER
 # --------------------------------------------------------------------------- #
 st.title("Holdings")
-st.caption("Posizioni correnti, P&L per ticker e pesi nel portafoglio")
+st.caption("Current positions, P&L by ticker and portfolio weights")
 
 # --------------------------------------------------------------------------- #
 # METRICHE DI SINTESI
@@ -51,9 +40,9 @@ pnl_pct = pnl_eur / invested if invested else 0.0
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    kpi_card("Capitale investito", f"{invested:,.2f} €")
+    kpi_card("Invested capital", f"{invested:,.2f} €")
 with col2:
-    kpi_card("Valore di mercato", f"{market_value:,.2f} €")
+    kpi_card("Market value", f"{market_value:,.2f} €")
 with col3:
     kpi_card(
         "P&L",
@@ -62,14 +51,14 @@ with col3:
         delta_kind="positive" if pnl_eur >= 0 else "negative",
     )
 with col4:
-    kpi_card("N° posizioni", f"{len(holdings_valued)}")
+    kpi_card("Positions", f"{len(holdings_valued)}")
 
 st.divider()
 
 # --------------------------------------------------------------------------- #
 # TABELLA DETTAGLIATA
 # --------------------------------------------------------------------------- #
-st.subheader("Dettaglio per ticker")
+st.subheader("Breakdown by ticker")
 
 # Trasformo le percentuali da frazione (0.087) a numero (8.7) perché
 # st.column_config.NumberColumn non ha un format "percent" automatico.
@@ -80,34 +69,34 @@ view = holdings_valued[[
 view["pnl_pct"] = view["pnl_pct"] * 100
 view["weight"] = view["weight"] * 100
 view = view.rename(columns={
-    "name": "Nome",
-    "quantity": "Quantità",
-    "avg_cost": "Costo medio",
-    "last_price": "Ultimo prezzo",
-    "invested": "Investito",
-    "market_value": "Valore",
+    "name": "Name",
+    "quantity": "Quantity",
+    "avg_cost": "Avg cost",
+    "last_price": "Last price",
+    "invested": "Invested",
+    "market_value": "Value",
     "pnl_eur": "P&L €",
     "pnl_pct": "P&L %",
-    "weight": "Peso",
+    "weight": "Weight",
 })
 
 st.dataframe(
     view,
     use_container_width=True,
     column_config={
-        "Quantità":      st.column_config.NumberColumn(format="%.4f"),
-        "Costo medio":   st.column_config.NumberColumn(format="%.2f €"),
-        "Ultimo prezzo": st.column_config.NumberColumn(format="%.2f €"),
-        "Investito":     st.column_config.NumberColumn(format="%.2f €"),
-        "Valore":        st.column_config.NumberColumn(format="%.2f €"),
-        "P&L €":         st.column_config.NumberColumn(format="%+.2f €"),
-        "P&L %":         st.column_config.NumberColumn(format="%+.2f%%"),
-        "Peso":          st.column_config.ProgressColumn(
-                            format="%.1f%%", min_value=0, max_value=100),
+        "Quantity":   st.column_config.NumberColumn(format="%.4f"),
+        "Avg cost":   st.column_config.NumberColumn(format="%.2f €"),
+        "Last price": st.column_config.NumberColumn(format="%.2f €"),
+        "Invested":   st.column_config.NumberColumn(format="%.2f €"),
+        "Value":      st.column_config.NumberColumn(format="%.2f €"),
+        "P&L €":      st.column_config.NumberColumn(format="%+.2f €"),
+        "P&L %":      st.column_config.NumberColumn(format="%+.2f%%"),
+        "Weight":     st.column_config.ProgressColumn(
+                        format="%.1f%%", min_value=0, max_value=100),
     },
 )
 
 st.caption(
-    f"📅 Ultimo prezzo disponibile: {prices.index[-1]:%d/%m/%Y}  ·  "
-    f"il P&L è al lordo di bollo e imposta sulle plusvalenze "
+    f"Latest available price: {prices.index[-1]:%d/%m/%Y}  ·  "
+    f"P&L is gross of stamp duty and capital-gains tax"
 )

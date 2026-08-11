@@ -30,7 +30,7 @@ from streamlit_components import kpi_card, callout
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
-st.set_page_config(page_title="Ribilanciamento", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Rebalancing", layout="wide")
 
 inject_css()
 
@@ -51,17 +51,17 @@ prices_now = prices.iloc[-1]
 # --------------------------------------------------------------------------- #
 # HEADER + GUARD
 # --------------------------------------------------------------------------- #
-st.title("Ribilanciamento PAC")
+st.title("Rebalancing")
 st.caption(
-    "Suggerimento operativo per il prossimo versamento e proiezione "
-    "della convergenza al target."
+    "Actionable suggestion for your next contribution and a projection of "
+    "convergence to target."
 )
 
 if not target:
     callout(
-        "<strong>Target allocation non configurata.</strong> "
-        "Aggiungi i pesi target nel foglio <strong>settings</strong> del "
-        "file Excel (formato: <strong>ticker | target_weight</strong>, somma = 1.0).",
+        "<strong>Target allocation not configured.</strong> "
+        "Add the target weights in the <strong>settings</strong> sheet of the "
+        "Excel file (format: <strong>ticker | target_weight</strong>, sum = 1.0).",
         kind="danger",
     )
     st.stop()
@@ -81,49 +81,49 @@ total_value = float(holdings_valued["market_value"].sum())
 
 scol1, scol2, scol3 = st.columns(3)
 with scol1:
-    kpi_card("Valore portafoglio", f"{total_value:,.2f} €")
+    kpi_card("Portfolio value", f"{total_value:,.2f} €")
 with scol2:
     kpi_card(
-        "Max scostamento attuale",
+        "Current max deviation",
         f"{max_dev_now:.2%}",
-        delta=f"soglia {DEFAULT_THRESHOLD:.0%}",
+        delta=f"threshold {DEFAULT_THRESHOLD:.0%}",
         delta_kind="negative" if max_dev_now > DEFAULT_THRESHOLD else "positive",
     )
 with scol3:
-    kpi_card("Ticker fuori soglia", f"{n_off}/{len(all_tickers)}")
+     kpi_card("Tickers off threshold", f"{n_off}/{len(all_tickers)}")
 
 st.divider()
 
 # --------------------------------------------------------------------------- #
 # INPUT INTERATTIVO
 # --------------------------------------------------------------------------- #
-st.subheader("Parametri del versamento")
+st.subheader("Contribution parameters")
 
 icol1, icol2 = st.columns([3, 1])
 with icol1:
     new_cash = st.number_input(
-        "Importo netto da investire (€)",
+        "Net amount to invest (€)",
         min_value=10.0,
         value=500.0,
         step=50.0,
         format="%.2f",
-        help="Importo che verrà effettivamente investito in ETF. "
-             "Le commissioni sono aggiuntive e vengono pagate sopra questa cifra.",
+        help="Amount actually invested in ETFs. Fees are additional and paid "
+             "on top of this figure.",
     )
 
 with icol2:
     # Spacer per allineare il bottone popover all'altezza del campo input
     # a sinistra (compensa l'altezza della label del number_input, ~28px).
     st.markdown("<div style='height: 1.75rem'></div>", unsafe_allow_html=True)
-    with st.popover("⚙️ Parametri avanzati", use_container_width=True):
+    with st.popover("Advanced parameters", use_container_width=True):
         threshold = st.slider(
-            "Soglia di tolleranza (%)",
+            "Tolerance threshold (%)",
             min_value=0.5, max_value=5.0,
             value=DEFAULT_THRESHOLD * 100, step=0.5,
-            help="Sotto questa soglia non vale la pena fare uno split su 2 ETF.",
+            help="Below this threshold, splitting across 2 ETFs isn't worth it.",
         ) / 100
         fee_per_order = st.number_input(
-            "Commissione per ordine (€)",
+            "Fee per order (€)",
             min_value=0.0, value=DEFAULT_FEE_PER_ORDER, step=0.5,
             format="%.2f",
         )
@@ -139,7 +139,7 @@ rec = suggest_rebalance(
 # --------------------------------------------------------------------------- #
 # OUTPUT SUGGERIMENTO
 # --------------------------------------------------------------------------- #
-st.subheader(f"Suggerimento per PAC di {new_cash:,.2f} €")
+st.subheader(f"Suggestion for a {new_cash:,.2f} € contribution")
 
 # Caso edge: cash insufficiente
 if rec["summary"]["n_orders"] == 0:
@@ -154,28 +154,28 @@ else:
     s = rec["summary"]
     mcol1, mcol2, mcol3, mcol4 = st.columns(4)
     with mcol1:
-        kpi_card("Cash investito", f"{s['cash_invested']:,.2f} €")
+        kpi_card("Cash invested", f"{s['cash_invested']:,.2f} €")
     with mcol2:
         kpi_card(
-            "Commissioni",
+            "Fees",
             f"{s['fees_total']:,.2f} €",
-            delta=f"{s['n_orders']} ordine/i",
+            delta=f"{s['n_orders']} order(s)",
             delta_kind="neutral",
         )
     with mcol3:
-        kpi_card("Totale uscita conto", f"{s['cash_input']:,.2f} €")
+        kpi_card("Total cash out", f"{s['cash_input']:,.2f} €")
     with mcol4:
         # Deviazione minore è meglio: se scende → positive, se sale → negative
         dev_delta = s['max_deviation_post'] - max_dev_now
         kpi_card(
-            "Max deviazione post",
+            "Max deviation after",
             f"{s['max_deviation_post']:.2%}",
-            delta=f"{dev_delta*100:+.2f}pp vs attuale",
+            delta=f"{dev_delta*100:+.2f}pp vs current",
             delta_kind="positive" if dev_delta < 0 else "negative",
         )
 
     # Tabella ordini
-    st.markdown("##### Ordini da eseguire")
+    st.markdown("##### Orders to place")
 
     orders = rec["orders"].copy()
     # Aggiungo il nome dell'ETF per leggibilità
@@ -192,13 +192,13 @@ else:
         "fees", "weight_post", "deviation_post"
     ]].rename(columns={
         "ticker": "Ticker",
-        "name": "Nome",
-        "quantity": "Quantità",
-        "price": "Prezzo",
-        "cash_invested": "Cash investito",
-        "fees": "Commissione",
-        "weight_post": "Peso post",
-        "deviation_post": "Dev. post (pp)",
+        "name": "Name",
+        "quantity": "Quantity",
+        "price": "Price",
+        "cash_invested": "Cash invested",
+        "fees": "Fee",
+        "weight_post": "Weight after",
+        "deviation_post": "Dev. after (pp)",
     })
 
     st.dataframe(
@@ -206,12 +206,12 @@ else:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Quantità":       st.column_config.NumberColumn(format="%.4f"),
-            "Prezzo":         st.column_config.NumberColumn(format="%.2f €"),
-            "Cash investito": st.column_config.NumberColumn(format="%.2f €"),
-            "Commissione":    st.column_config.NumberColumn(format="%.2f €"),
-            "Peso post":      st.column_config.NumberColumn(format="%.2f%%"),
-            "Dev. post (pp)": st.column_config.NumberColumn(format="%+.2f"),
+            "Quantity":       st.column_config.NumberColumn(format="%.4f"),
+            "Price":          st.column_config.NumberColumn(format="%.2f €"),
+            "Cash invested":  st.column_config.NumberColumn(format="%.2f €"),
+            "Fee":            st.column_config.NumberColumn(format="%.2f €"),
+            "Weight after":   st.column_config.NumberColumn(format="%.2f%%"),
+            "Dev. after (pp)": st.column_config.NumberColumn(format="%+.2f"),
         },
     )
 
@@ -220,11 +220,11 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # PROIEZIONE CONVERGENZA
 # --------------------------------------------------------------------------- #
-st.subheader("Proiezione: in quanti mesi torno a target?")
+st.subheader("Projection: how many months back to target?")
 st.caption(
-    f"Simulazione con PAC mensile di {new_cash:,.0f} € ripetuto fino a "
-    f"deviazione massima < {PROJECTION_TARGET_BAND:.1%}. "
-    f"Ipotesi: prezzi costanti (semplificazione)."
+    f"Simulation with a monthly {new_cash:,.0f} € contribution, repeated until "
+    f"max deviation < {PROJECTION_TARGET_BAND:.1%}. "
+    f"Assumption: constant prices (a simplification)."
 )
 
 proj = project_convergence(
@@ -241,50 +241,50 @@ pcol1, pcol2 = st.columns([1, 3])
 with pcol1:
     if converged and months_to_target == 0:
         kpi_card(
-            "Già a target",
+            "Already on target",
             "✅",
-            help=f"La deviazione massima è già sotto {PROJECTION_TARGET_BAND:.1%}.",
+            help=f"Max deviation is already below {PROJECTION_TARGET_BAND:.1%}.",
         )
     elif converged:
         kpi_card(
-            "Mesi alla convergenza",
+            "Months to convergence",
             f"{months_to_target}",
-            delta=f"banda ±{PROJECTION_TARGET_BAND:.1%}",
+            delta=f"band ±{PROJECTION_TARGET_BAND:.1%}",
             delta_kind="neutral",
         )
     else:
         final_dev = proj.get("final_max_dev", max_dev_now)
         kpi_card(
-            "Non converge in 60 mesi",
+            "No convergence in 60 months",
             "—",
-            delta=f"dev finale: {final_dev:.2%}",
+            delta=f"final dev: {final_dev:.2%}",
             delta_kind="negative",
         )
 
 with pcol2:
     if converged and months_to_target == 0:
         callout(
-            f"Il portafoglio è già entro la banda di "
-            f"{PROJECTION_TARGET_BAND:.1%} dal target. Nessuna azione "
-            f"correttiva necessaria.",
+            f"The portfolio is already within the "
+            f"{PROJECTION_TARGET_BAND:.1%} band around target. No corrective "
+            f"action needed.",
             kind="success",
         )
     elif converged:
         callout(
-            f"Continuando con un PAC mensile di <strong>{new_cash:,.0f} €</strong>, "
-            f"il portafoglio rientrerà entro la banda di "
-            f"<strong>{PROJECTION_TARGET_BAND:.1%}</strong> dal target in circa "
-            f"<strong>{months_to_target} mesi</strong>. Nessuna vendita necessaria — "
-            f"l'auto-correzione avviene tramite versamenti.",
+            f"Continuing with a monthly <strong>{new_cash:,.0f} €</strong> "
+            f"contribution, the portfolio returns within the "
+            f"<strong>{PROJECTION_TARGET_BAND:.1%}</strong> band around target in "
+            f"about <strong>{months_to_target} months</strong>. No selling needed — "
+            f"self-correction happens through contributions.",
             kind="info",
         )
     else:
         callout(
-            f"Con un PAC di {new_cash:,.0f} €, il portafoglio non rientra "
-            f"entro la banda di {PROJECTION_TARGET_BAND:.1%} nei prossimi "
-            f"60 mesi (deviazione finale: {proj.get('final_max_dev', 0):.2%}). "
-            f"Considera un PAC più alto o una vendita parziale (con il drag "
-            f"fiscale del 26% sulle plusvalenze).",
+            f"With a {new_cash:,.0f} € contribution, the portfolio doesn't return "
+            f"within the {PROJECTION_TARGET_BAND:.1%} band over the next "
+            f"60 months (final deviation: {proj.get('final_max_dev', 0):.2%}). "
+            f"Consider a larger contribution or a partial sale (with the 26% "
+            f"tax drag on gains).",
             kind="warning",
         )
 
@@ -300,15 +300,15 @@ threshold_pct = threshold * 100
 ax.plot(months_axis, max_devs_pct, color=cs.COLORS["value"],
         linewidth=2.0, marker="o", markersize=4,
         markerfacecolor=cs.COLORS["value"], markeredgecolor="white",
-        markeredgewidth=1.0, label="Max deviazione")
+        markeredgewidth=1.0, label="Max deviation")
 
 # Area shaded: zona target (< target_band)
 ax.axhspan(0, target_band_pct, color=cs.COLORS["gain"], alpha=0.10,
-           zorder=0, label=f"Banda target (< {target_band_pct:.1f}%)")
+           zorder=0, label=f"Target band (< {target_band_pct:.1f}%)")
 
 # Linea threshold (più alta)
 ax.axhline(threshold_pct, color=cs.COLORS["muted"], linewidth=0.8,
-           linestyle="--", alpha=0.6, label=f"Soglia {threshold_pct:.1f}%")
+           linestyle="--", alpha=0.6, label=f"Threshold {threshold_pct:.1f}%")
 
 # Marker sul punto di convergenza
 if converged and months_to_target is not None and months_to_target > 0:
@@ -317,20 +317,20 @@ if converged and months_to_target is not None and months_to_target > 0:
     ax.scatter([months_to_target], [convergence_y],
                color=cs.COLORS["gain"], s=120, zorder=5,
                edgecolor="white", linewidth=2.0,
-               label=f"Convergenza al mese {months_to_target}")
+               label=f"Convergence at month {months_to_target}")
 
 cs.style_axis(ax, euro=False, date_axis=False)
 ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{int(v)}"))
 ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:.1f}%"))
-ax.set_xlabel("Mese", fontsize=10, color=cs.COLORS["fg"])
+ax.set_xlabel("Month", fontsize=10, color=cs.COLORS["fg"])
 ax.set_ylim(bottom=0)
 
 cs.style_legend(ax, loc="upper right")
 cs.add_title(
     fig,
-    title="Convergenza al target",
-    subtitle=f"Max deviazione di portafoglio nel tempo · "
-             f"PAC mensile {new_cash:,.0f} € · prezzi costanti",
+    title="Convergence to target",
+    subtitle=f"Portfolio max deviation over time · "
+             f"monthly {new_cash:,.0f} € contribution · constant prices",
     source=None,
 )
 st.pyplot(fig, use_container_width=True)
@@ -338,33 +338,33 @@ st.pyplot(fig, use_container_width=True)
 # --------------------------------------------------------------------------- #
 # FOOTER DIDATTICO
 # --------------------------------------------------------------------------- #
-with st.expander("ℹ️ Logica del ribilanciamento"):
+with st.expander("Rebalancing logic"):
     st.markdown(
         f"""
-        **Strategia gap-closing single-buy**:
-        1. Calcola il valore totale post-investimento e l'allocazione "ideale"
-           (peso target × valore post)
-        2. Identifica il ticker più sottopesato (gap maggiore tra ideale e attuale)
-        3. **Prova un acquisto singolo** mettendo tutto il cash sul primary
-        4. Se la deviazione post-acquisto è **sotto la soglia di {threshold:.1%}**,
-           ferma qui (1 ordine, 1 commissione)
-        5. Altrimenti **split su due ticker** in proporzione ai gap (2 ordini, 2 commissioni)
+        **Single-buy gap-closing strategy**:
+        1. Compute the total post-investment value and the "ideal" allocation
+           (target weight × post value)
+        2. Identify the most underweight ticker (largest gap between ideal and current)
+        3. **Try a single buy**, putting all the cash on that primary ticker
+        4. If the post-buy deviation is **below the {threshold:.1%} threshold**,
+           stop here (1 order, 1 fee)
+        5. Otherwise **split across two tickers** in proportion to the gaps (2 orders, 2 fees)
 
-        **Perché single-buy preferito**:
-        - La commissione TR di {fee_per_order:.2f} € su un PAC di {new_cash:,.0f} €
-          vale {fee_per_order/new_cash:.2%} di drag (più del bollo annuo dello 0,2%)
-        - Se la singola operazione chiude la deviazione, lo split è uno spreco
-        - Il mese successivo correggerà naturalmente eventuali drift residui
+        **Why single-buy is preferred**:
+        - A TR fee of {fee_per_order:.2f} € on a {new_cash:,.0f} € contribution
+          is a {fee_per_order/new_cash:.2%} drag (more than the 0.2% annual stamp duty)
+        - If a single order closes the deviation, splitting is wasteful
+        - The following month naturally corrects any residual drift
 
-        **Perché no vendite**:
-        - Per ETF armonizzati italiani, vendere realizza plusvalenze tassate al 26%
-        - Il tax drag rende il "sell-high/buy-low" sub-ottimale per retail
-        - Il PAC fornisce naturalmente flussi per auto-correggere il drift
+        **Why no selling**:
+        - For Italian harmonised ETFs, selling realises gains taxed at 26%
+        - The tax drag makes "sell-high / buy-low" sub-optimal for retail investors
+        - Recurring contributions naturally provide the flows to self-correct drift
 
-        **Caveat della proiezione**:
-        - Assume **prezzi costanti** e **rendimenti nulli**: è una semplificazione
-        - Nella realtà i prezzi si muovono e influenzano l'auto-correzione (a volte
-          aiutando, a volte ostacolando)
-        - Per una proiezione fedele alle dinamiche reali → pagina **Monte Carlo** (in arrivo)
+        **Projection caveats**:
+        - It assumes **constant prices** and **zero returns**: a simplification
+        - In reality prices move and affect self-correction (sometimes helping,
+          sometimes hindering)
+        - For a projection faithful to real dynamics → the **Monte Carlo** page
         """
     )

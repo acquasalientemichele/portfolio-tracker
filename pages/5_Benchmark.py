@@ -26,7 +26,7 @@ from streamlit_components import kpi_card, callout
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
-st.set_page_config(page_title="Benchmark", page_icon="🏆", layout="wide")
+st.set_page_config(page_title="Vs benchmark", layout="wide")
 
 inject_css()
 
@@ -69,23 +69,23 @@ alpha_vs_bench = ret_p - ret_b  # outperformance vs benchmark (lordo)
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("Performance vs Benchmark")
+st.title("Performance vs benchmark")
 st.caption(
-    f"Confronto del rendimento (TWR) con il benchmark **{benchmark_ticker}**, "
-    f"tutte le serie normalizzate a 1.0 al primo giorno di operatività"
+    f"Return (TWR) compared with the **{benchmark_ticker}** benchmark, "
+    f"all series normalised to 1.0 on the first active day"
 )
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    kpi_card("TWR lordo", f"{ret_p:+.2f}%")
+    kpi_card("Gross TWR", f"{ret_p:+.2f}%")
 with col2:
     kpi_card(
-        "TWR netto bollo",
+        "TWR net of stamp duty",
         f"{ret_pn:+.2f}%",
         delta=f"−{drag_pp:.2f}pp drag",
         delta_kind="negative",
-        help="Performance del portafoglio dopo aver detratto il bollo "
-             "modellato (0,2% annuo sul valore giornaliero).",
+        help="Portfolio performance after deducting the modelled stamp duty "
+             "(0.2% per year on the daily value).",
     )
 with col3:
     kpi_card(f"Benchmark ({benchmark_ticker})", f"{ret_b:+.2f}%")
@@ -95,8 +95,8 @@ with col4:
         f"{alpha_vs_bench:+.2f}pp",
         delta="Outperformance" if alpha_vs_bench > 0 else "Underperformance",
         delta_kind="positive" if alpha_vs_bench >= 0 else "negative",
-        help="Differenza in punti percentuali tra TWR lordo del portafoglio "
-             "e rendimento del benchmark.",
+        help="Difference in percentage points between the portfolio's gross "
+             "TWR and the benchmark's return.",
     )
 
 # --------------------------------------------------------------------------- #
@@ -106,28 +106,28 @@ with col4:
 if benchmark_ticker in set(tx["ticker"].unique()):
     # Caso comune: benchmark coincide con uno degli ETF in portafoglio
     callout(
-        f"Il benchmark <strong>{benchmark_ticker}</strong> è anche uno degli ETF "
-        f"nel tuo portafoglio. È normale che la performance del portafoglio sia "
-        f"molto vicina a quella del benchmark — la differenza è generata dal peso "
-        f"degli altri ETF e dalle date dei versamenti.",
+        f"The benchmark <strong>{benchmark_ticker}</strong> is also one of the ETFs "
+        f"in your portfolio. It's normal for the portfolio's performance to track "
+        f"the benchmark closely — the difference comes from the weight of the "
+        f"other ETFs and the timing of contributions.",
         kind="info",
     )
 elif abs(alpha_vs_bench) < 0.5:
     callout(
-        f"La performance del portafoglio è sostanzialmente in linea con il "
+        f"The portfolio's performance is broadly in line with the "
         f"benchmark (spread {alpha_vs_bench:+.2f}pp).",
         kind="info",
     )
 elif alpha_vs_bench > 0:
     callout(
-        f"Il portafoglio sovraperforma il benchmark di "
-        f"<strong>{alpha_vs_bench:+.2f}pp</strong> (TWR lordo).",
+        f"The portfolio outperforms the benchmark by "
+        f"<strong>{alpha_vs_bench:+.2f}pp</strong> (gross TWR).",
         kind="success",
     )
 else:
     callout(
-        f"Il portafoglio sottoperforma il benchmark di "
-        f"<strong>{alpha_vs_bench:.2f}pp</strong> (TWR lordo).",
+        f"The portfolio underperforms the benchmark by "
+        f"<strong>{alpha_vs_bench:.2f}pp</strong> (gross TWR).",
         kind="warning",
     )
 
@@ -136,10 +136,6 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # GRAFICO (Plotly interattivo)
 # --------------------------------------------------------------------------- #
-# Confronto TWR lordo vs benchmark. La linea "portafoglio netto post-bollo"
-# è stata rimossa: il drag del bollo è irrilevante visivamente (< 0.1pp
-# → linea sovrapposta a quella lorda) e il valore quantitativo resta
-# esplicito nella KPI card "TWR netto bollo" con delta -X.XXpp drag.
 
 # Trasformo le serie normalizzate (1.0 = base) in variazione %
 # (0.0 = base). Plotly con y_format="percent" moltiplica × 100.
@@ -202,10 +198,10 @@ fig.add_trace(go.Scatter(
 # Linea portafoglio lordo (navy solid, principale)
 fig.add_trace(go.Scatter(
     x=common_idx, y=ret_p_series.values,
-    name="Portafoglio",
+    name="Portfolio",
     mode="lines",
     line=dict(color=ps.COLORS["value"], width=2.2),
-    hovertemplate="<b>%{y:+.2%}</b><extra>Portafoglio</extra>",
+    hovertemplate="<b>%{y:+.2%}</b><extra>Portfolio</extra>",
 ))
 
 # Linea di base a 0 (riferimento visivo)
@@ -243,11 +239,11 @@ ps.add_endline_annotations(fig, [
 
 ps.apply_layout(
     fig,
-    title="Performance: Portafoglio vs Benchmark",
-    subtitle=f"Lordo {ret_p:+.1f}%   ·   "
+    title="Performance: portfolio vs benchmark",
+    subtitle=f"Gross {ret_p:+.1f}%   ·   "
              f"Benchmark {ret_b:+.1f}%   ·   "
              f"Alpha {alpha_vs_bench:+.2f}pp",
-    source=f"Fonte: yfinance (EOD)  ·  Aggiornato {common_idx[-1].date()}",
+    source=f"Source: yfinance (EOD)  ·  Updated {common_idx[-1].date()}",
     height=500,
 )
 
@@ -256,33 +252,31 @@ st.plotly_chart(fig, use_container_width=True, config=ps.PLOTLY_CONFIG)
 # --------------------------------------------------------------------------- #
 # EXPANDER DIDATTICO
 # --------------------------------------------------------------------------- #
-with st.expander("ℹ️ Come leggere il grafico"):
+with st.expander("How to read this chart"):
     st.markdown(
         f"""
-        - **Linea blu continua**: TWR del portafoglio al **lordo** di bollo e tasse.
-          È la metrica standard GIPS, indipendente dal timing dei versamenti.
-        - **Linea tratteggiata** (color benchmark): prezzo di {benchmark_ticker}
-          normalizzato a 1.0 al primo giorno di operatività.
-        - **Area verde / rossa**: outperformance / underperformance del
-          portafoglio (lordo) rispetto al benchmark.
+        - **Solid blue line**: the portfolio's TWR, **gross** of stamp duty and
+          taxes. It's the standard GIPS metric, independent of contribution timing.
+        - **Dashed line** (benchmark colour): the price of {benchmark_ticker}
+          normalised to 1.0 on the first active day.
+        - **Green / red area**: the portfolio's outperformance / underperformance
+          (gross) relative to the benchmark.
 
-        **Sul drag del bollo**: la performance netta post-bollo modellato
-        (0,2% annuo) è mostrata quantitativamente nella KPI card **TWR netto
-        bollo** in alto (delta pp rispetto al lordo). Non è rappresentata
-        come linea separata nel grafico perché il drag è tipicamente < 0.1pp
-        → produrrebbe una linea sovrapposta al lordo, senza aggiungere
-        informazione visiva.
+        **On the stamp-duty drag**: performance net of the modelled stamp duty
+        (0.2% per year) is shown quantitatively in the **TWR net of stamp duty**
+        KPI card above (delta in pp vs gross). It isn't drawn as a separate line
+        because the drag is typically < 0.1pp → it would sit on top of the gross
+        line, adding no visual information.
 
-        **Cosa NON include il "netto bollo"**:
-        - L'imposta sulle plusvalenze (26%), che si applica solo in caso di
-          vendita. Per la simulazione "se vendessi oggi" vedi la pagina
-          **Costi e fiscalità**.
-        - Il TER degli ETF: già incorporato nel NAV restituito da yfinance,
-          quindi è implicitamente nel TWR lordo.
+        **What "net of stamp duty" does NOT include**:
+        - Capital-gains tax (26%), which applies only on a sale. For the
+          "if I sold today" simulation see the **Costs & tax** page.
+        - The ETFs' TER: already embedded in the NAV returned by yfinance, so
+          it's implicitly reflected in the gross TWR.
 
-        **Nota sul confronto**: se il benchmark è uno degli ETF in portafoglio,
-        la performance del portafoglio sarà strutturalmente vicina al benchmark.
-        Per un confronto più informativo si può cambiare `benchmark_ticker` nel
-        foglio `settings` del file Excel.
+        **Note on the comparison**: if the benchmark is one of the ETFs in the
+        portfolio, the portfolio's performance will structurally track it. For a
+        more informative comparison, change `benchmark_ticker` in the `settings`
+        sheet of the Excel file.
         """
     )

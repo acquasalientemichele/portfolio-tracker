@@ -26,7 +26,7 @@ from streamlit_components import kpi_card, callout
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
-st.set_page_config(page_title="Costi", page_icon="💸", layout="wide")
+st.set_page_config(page_title="Costs & tax", layout="wide")
 
 inject_css()
 
@@ -53,44 +53,43 @@ summary = cst.cost_summary(tx, holdings_valued, vs, costs_cfg)
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("Costi e fiscalità")
+st.title("Costs & tax")
 st.caption(
-    "Cascata dal P&L lordo al P&L netto netto. "
-    "Le imposte sulle plusvalenze sono **simulate** ('se vendessi oggi')."
+    "Waterfall from gross P&L to net-net P&L. "
+    "Capital-gains tax is **simulated** ('if I sold today')."
 )
 
 # 4 metriche di sintesi
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     kpi_card(
-        "P&L lordo",
+        "Gross P&L",
         f"{summary['pnl_lordo']:+,.2f} €",
         delta=f"{summary['pnl_lordo_pct']:+.2%}",
         delta_kind="positive" if summary['pnl_lordo'] >= 0 else "negative",
     )
 with col2:
     kpi_card(
-        "Costi cash",
+        "Cash costs",
         f"−{summary['cash_costs']:,.2f} €",
-        delta=f" {summary['fees_total']:,.2f} comm. + "
-              f"{summary['bollo_model']:,.2f} bollo",
+        delta=f"{summary['fees_total']:,.2f} fees + "
+              f"{summary['bollo_model']:,.2f} stamp duty",
         delta_kind="neutral",
-        help="Commissioni TR (effettive) + bollo modellato (0,2% annuo).",
+        help="TR fees (actual) + modelled stamp duty (0.2% per year).",
     )
 with col3:
     kpi_card(
-        "Tax simulata (26%)",
+        "Simulated tax (26%)",
         f"−{summary['cap_gain_tax']:,.2f} €",
-        delta="se vendi oggi",
+        delta="if you sell today",
         delta_kind="neutral",
-        help="Stima dell'imposta sulle plusvalenze in caso di liquidazione "
-             "totale del portafoglio. Per ETF armonizzati: 26% sulla plusvalenza "
-             "netta (le minusvalenze di una posizione compensano le plusvalenze "
-             "di un'altra).",
+        help="Estimated capital-gains tax on a full liquidation of the "
+             "portfolio. For Italian harmonised ETFs: 26% on the net gain "
+             "(losses on one position offset gains on another).",
     )
 with col4:
     kpi_card(
-        "P&L netto netto",
+        "Net-net P&L",
         f"{summary['pnl_net_net']:+,.2f} €",
         delta=f"{summary['pnl_net_net_pct']:+.2%}",
         delta_kind="positive" if summary['pnl_net_net'] >= 0 else "negative",
@@ -101,7 +100,7 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # WATERFALL CHART
 # --------------------------------------------------------------------------- #
-st.subheader("Cascata: dal lordo al netto netto")
+st.subheader("Waterfall: from gross to net-net")
 
 pnl_lordo = summary["pnl_lordo"]
 fees = summary["fees_total"]
@@ -111,8 +110,8 @@ pnl_nn = summary["pnl_net_net"]
 
 # Costruisco arrays per il waterfall: bottoms, heights, colors.
 # Le barre intermedie "fluttuano" tra due livelli consecutivi della cascata.
-labels = ["P&L lordo", "− Commissioni", "− Bollo modello",
-          "− Cap gain tax", "P&L netto netto"]
+labels = ["Gross P&L", "− Fees", "− Stamp duty (model)",
+          "− Cap. gains tax", "Net-net P&L"]
 
 bottoms = []
 heights = []
@@ -191,8 +190,8 @@ ax.set_ylim(ymin, ymax)
 
 cs.add_title(
     fig,
-    title="Cascata costi e fiscalità",
-    subtitle=f"P&L netto netto = P&L lordo − commissioni − bollo − imposta plus",
+    title="Costs & tax waterfall",
+    subtitle="Net-net P&L = gross P&L − fees − stamp duty − capital-gains tax",
     source=None,
 )
 st.pyplot(fig, use_container_width=True)
@@ -202,48 +201,48 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # TABELLA DETTAGLIO
 # --------------------------------------------------------------------------- #
-st.subheader("Dettaglio voci")
+st.subheader("Line-item breakdown")
 
 inv = summary["invested"]
 rows = [
-    ("P&L lordo",
+    ("Gross P&L",
      summary["pnl_lordo"], summary["pnl_lordo_pct"],
-     "valore di mercato − capitale investito"),
-    ("  − Commissioni TR",
+     "market value − invested capital"),
+    ("  − TR fees",
      -summary["fees_total"], -summary["fees_total"] / inv if inv else 0,
-     "fees effettive sulle operazioni"),
-    ("  − Bollo (modello)",
+     "actual fees on transactions"),
+    ("  − Stamp duty (model)",
      -summary["bollo_model"], -summary["bollo_model"] / inv if inv else 0,
-     "0,20% annuo modellato con accrual giornaliero"),
-    ("     Bollo (reale TR)",
+     "0.20% per year, modelled with daily accrual"),
+    ("     Stamp duty (actual TR)",
      -summary["bollo_real"], -summary["bollo_real"] / inv if inv else 0,
-     "informativo: addebiti reali, se compilati"),
-    ("  − Imposta plus 26%",
+     "informational: actual charges, if filled in"),
+    ("  − Capital-gains tax 26%",
      -summary["cap_gain_tax"], -summary["cap_gain_tax"] / inv if inv else 0,
-     "simulata 'se vendi oggi', su plusvalenza netta"),
-    ("P&L netto netto",
+     "simulated 'if you sell today', on net gain"),
+    ("Net-net P&L",
      summary["pnl_net_net"], summary["pnl_net_net_pct"],
-     "= lordo − cash costs − tax simulata"),
+     "= gross − cash costs − simulated tax"),
 ]
 
 import pandas as pd
-detail = pd.DataFrame(rows, columns=["Voce", "Importo (€)", "% su investito", "Nota"])
-detail["% su investito"] = detail["% su investito"] * 100
+detail = pd.DataFrame(rows, columns=["Item", "Amount (€)", "% of invested", "Note"])
+detail["% of invested"] = detail["% of invested"] * 100
 
 st.dataframe(
     detail,
     use_container_width=True,
     hide_index=True,
     column_config={
-        "Importo (€)":     st.column_config.NumberColumn(format="%+.2f €"),
-        "% su investito":  st.column_config.NumberColumn(format="%+.3f%%"),
+        "Amount (€)":     st.column_config.NumberColumn(format="%+.2f €"),
+        "% of invested":  st.column_config.NumberColumn(format="%+.3f%%"),
     },
 )
 
 st.caption(
-    "**Bollo modello vs reale**: il modello stima il bollo con accrual "
-    "giornaliero, il reale è quanto TR ha effettivamente addebitato. "
-    "Le due cifre dovrebbero convergere su periodi lunghi."
+    "**Modelled vs actual stamp duty**: the model estimates stamp duty with "
+    "daily accrual, the actual figure is what TR really charged. "
+    "The two should converge over long periods."
 )
 
 st.divider()
@@ -253,7 +252,7 @@ st.divider()
 # --------------------------------------------------------------------------- #
 bollo_real_df = costs_cfg["bollo_real"]
 
-st.subheader("Bollo modellato vs reale")
+st.subheader("Modelled vs actual stamp duty")
 
 if len(bollo_real_df) > 0:
     # Bar chart side-by-side
@@ -261,7 +260,7 @@ if len(bollo_real_df) > 0:
 
     with bcol1:
         fig, ax = plt.subplots(figsize=(8, 4))
-        cats = ["Modello", "Reale TR"]
+        cats = ["Model", "Actual (TR)"]
         vals = [summary["bollo_model"], summary["bollo_real"]]
         bar_colors = [cs.COLORS["value"], cs.COLORS["benchmark"]]
         bars = ax.bar(cats, vals, color=bar_colors, width=0.45,
@@ -278,8 +277,8 @@ if len(bollo_real_df) > 0:
         ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"€{v:,.2f}"))
         cs.style_axis(ax, euro=False, date_axis=False)
         ax.grid(False, axis="x")
-        cs.add_title(fig, "Bollo modellato vs addebiti reali",
-                     subtitle="Confronto cumulato a oggi", source=None)
+        cs.add_title(fig, "Modelled stamp duty vs actual charges",
+                     subtitle="Cumulative comparison to date", source=None)
         st.pyplot(fig, use_container_width=True)
 
     with bcol2:
@@ -287,40 +286,40 @@ if len(bollo_real_df) > 0:
         delta_pct = (delta_abs / summary["bollo_real"]
                      if summary["bollo_real"] else 0)
         kpi_card(
-            "Differenza modello − reale",
+           "Model − actual difference",
             f"€{delta_abs:+,.2f}",
             delta=f"{delta_pct:+.1%}" if summary["bollo_real"] else None,
             delta_kind="neutral",
         )
         st.markdown(
-            f"**Addebiti registrati**: {len(bollo_real_df)}  \n"
-            f"**Totale**: €{summary['bollo_real']:,.2f}"
+            f"**Recorded charges**: {len(bollo_real_df)}  \n"
+            f"**Total**: €{summary['bollo_real']:,.2f}"
         )
 
     # Tabella addebiti reali (compatta)
-    with st.expander("📋 Dettaglio addebiti reali registrati"):
+    with st.expander("Recorded actual charges"):
         breal = bollo_real_df.copy()
         breal["date"] = pd.to_datetime(breal["date"])
         breal = breal.sort_values("date")
         breal = breal.rename(columns={
-            "date": "Data", "amount": "Importo", "notes": "Note"
+            "date": "Date", "amount": "Amount", "notes": "Notes"
         })
         st.dataframe(
             breal,
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Data":    st.column_config.DateColumn(format="DD/MM/YYYY"),
-                "Importo": st.column_config.NumberColumn(format="%.2f €"),
+                "Date":   st.column_config.DateColumn(format="DD/MM/YYYY"),
+                "Amount": st.column_config.NumberColumn(format="%.2f €"),
             },
         )
 else:
     callout(
-        "Non sono stati registrati addebiti reali del bollo. "
-        "Per popolare questo confronto, aggiungi un foglio "
-        "<strong>bollo_charges</strong> al file Excel con colonne "
-        "<strong>date</strong>, <strong>amount</strong>, <strong>notes</strong> "
-        "e inserisci gli addebiti trimestrali di TR.",
+        "No actual stamp-duty charges recorded. "
+        "To populate this comparison, add a <strong>bollo_charges</strong> "
+        "sheet to the Excel file with columns <strong>date</strong>, "
+        "<strong>amount</strong>, <strong>notes</strong> and enter TR's "
+        "quarterly charges.",
         kind="info",
     )
 
@@ -336,22 +335,21 @@ if costs_cfg["ter"]:
 
     with tcol1:
         kpi_card(
-            "TER pesato annuo",
+            "Weighted annual TER",
             f"{summary['ter_weighted']*100:.3f}%",
-            delta=f"≈ {summary['ter_annual_eur']:,.2f} €/anno",
+            delta=f"≈ {summary['ter_annual_eur']:,.2f} €/year",
             delta_kind="neutral",
-            help="Media pesata sui pesi correnti del portafoglio. "
-                 "Il valore in euro è una stima sul valore di mercato attuale.",
+            help="Weighted average on the portfolio's current weights. "
+                 "The euro figure is an estimate on current market value.",
         )
 
     with tcol2:
         callout(
-            "Il <strong>TER non viene sottratto</strong> dal P&L perché è già "
-            "scontato dal NAV giornaliero degli ETF (per ETF accumulating come "
-            "VWCE/VFEA i prezzi yfinance riflettono già il NAV post-TER). "
-            "Sottrarlo nuovamente sarebbe double counting. È mostrato qui solo "
-            "a fini informativi, per dare visibilità di un costo strutturalmente "
-            "invisibile.",
+            "The <strong>TER is not subtracted</strong> from P&L because it's "
+            "already reflected in the ETFs' daily NAV (for accumulating ETFs like "
+            "VWCE/VFEA, yfinance prices already reflect the post-TER NAV). "
+            "Subtracting it again would be double counting. It's shown here for "
+            "information only, to give visibility to a structurally invisible cost.",
             kind="info",
         )
 
@@ -361,49 +359,48 @@ if costs_cfg["ter"]:
          if t in holdings_valued.index else 0.0)
         for t in costs_cfg["ter"]
     ]
-    ter_df = pd.DataFrame(ter_rows, columns=["Ticker", "TER annuo", "Peso"])
-    ter_df["TER annuo"] = ter_df["TER annuo"] * 100
-    ter_df["Peso"] = ter_df["Peso"] * 100
+    ter_df = pd.DataFrame(ter_rows, columns=["Ticker", "Annual TER", "Weight"])
+    ter_df["Annual TER"] = ter_df["Annual TER"] * 100
+    ter_df["Weight"] = ter_df["Weight"] * 100
 
     st.dataframe(
         ter_df,
         use_container_width=True,
         hide_index=True,
         column_config={
-            "TER annuo": st.column_config.NumberColumn(format="%.3f%%"),
-            "Peso":      st.column_config.NumberColumn(format="%.2f%%"),
+            "Annual TER": st.column_config.NumberColumn(format="%.3f%%"),
+            "Weight":     st.column_config.NumberColumn(format="%.2f%%"),
         },
     )
 else:
     callout(
-        "Non è stato configurato il TER degli ETF. "
-        "Per popolare questa sezione, aggiungi un foglio <strong>ter</strong> "
-        "al file Excel con colonne <strong>ticker</strong>, "
+        "The ETFs' TER hasn't been configured. "
+        "To populate this section, add a <strong>ter</strong> sheet to the "
+        "Excel file with columns <strong>ticker</strong>, "
         "<strong>ter_annual</strong>, <strong>note</strong> "
-        "(es. VWCE.DE → 0.0022 per 0,22%).",
+        "(e.g. VWCE.DE → 0.0022 for 0.22%).",
         kind="info",
     )
 
 # --------------------------------------------------------------------------- #
 # FOOTER DIDATTICO
 # --------------------------------------------------------------------------- #
-with st.expander("ℹ️ Logica della cascata"):
+with st.expander("Waterfall logic"):
     st.markdown(
         """
-        **Cosa viene sottratto** (e perché):
-        - **Commissioni TR**: cash effettivo già pagato sulle operazioni
-        - **Bollo modellato**: stima del bollo annuo italiano (0,20%) accruato
-          giornalmente. È *cash effettivo* anche se non ancora addebitato
-        - **Imposta plusvalenze 26%**: **virtuale** — si paga solo se vendi.
-          Per ETF armonizzati italiani, le minusvalenze di una posizione
-          compensano le plusvalenze di un'altra in caso di liquidazione
-          simultanea. Se il netto è in perdita, l'imposta è zero (genera
-          minusvalenza compensabile entro 4 anni)
+        **What is subtracted** (and why):
+        - **TR fees**: actual cash already paid on transactions
+        - **Modelled stamp duty**: estimate of the Italian annual stamp duty
+          (0.20%) accrued daily. It's *actual cash* even if not yet charged
+        - **Capital-gains tax 26%**: **virtual** — paid only if you sell.
+          For Italian harmonised ETFs, losses on one position offset gains on
+          another in a simultaneous liquidation. If the net result is a loss,
+          the tax is zero (and generates a loss carry-forward usable within 4 years)
 
-        **Cosa NON viene sottratto** (e perché):
-        - **TER**: già scontato dal NAV degli ETF accumulating, vedi sopra
-        - **Bollo reale**: è solo *informativo*, per verificare l'accuratezza
-          del modello. Il modello è quello che entra nella cascata perché è
-          continuo e prevedibile
+        **What is NOT subtracted** (and why):
+        - **TER**: already reflected in accumulating ETFs' NAV, see above
+        - **Actual stamp duty**: purely *informational*, to check the model's
+          accuracy. The model is what feeds the waterfall because it's continuous
+          and predictable
         """
     )

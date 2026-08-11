@@ -24,7 +24,7 @@ from streamlit_components import kpi_card, callout
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
-st.set_page_config(page_title="Allocazione", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="Allocation", layout="wide")
 
 inject_css()
 
@@ -63,10 +63,10 @@ alloc["off_threshold"] = alloc["abs_deviation"] > threshold
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("Allocazione")
+st.title("Allocation")
 st.caption(
-    "Pesi correnti vs target. La soglia oltre la quale conviene "
-    f"considerare un ribilanciamento è del {threshold:.0%}."
+    "Current weights vs target. The threshold beyond which rebalancing is "
+    f"worth considering is {threshold:.0%}."
 )
 
 # Metriche di sintesi
@@ -76,19 +76,19 @@ n_off = int(alloc["off_threshold"].sum())
 col1, col2, col3 = st.columns(3)
 with col1:
     kpi_card(
-        "Max scostamento",
+        "Max deviation",
         f"{max_dev:.2%}",
-        delta=f"soglia {threshold:.0%}",
+        delta=f"threshold {threshold:.0%}",
         delta_kind="negative" if max_dev > threshold else "positive",
     )
 with col2:
-    kpi_card("Ticker fuori soglia", f"{n_off}/{len(alloc)}")
+    kpi_card("Tickers off threshold", f"{n_off}/{len(alloc)}")
 with col3:
     kpi_card(
         "Threshold",
         f"{threshold:.1%}",
-        help="Soglia di scostamento sopra cui considerare il ribilanciamento. "
-             "Valore configurato in rebalance.DEFAULT_THRESHOLD.",
+        help="Deviation threshold above which to consider rebalancing. "
+             "Configured in rebalance.DEFAULT_THRESHOLD.",
     )
 
 # --------------------------------------------------------------------------- #
@@ -98,14 +98,14 @@ if n_off > 0:
     off_list = alloc[alloc["off_threshold"]].sort_values("abs_deviation", ascending=False)
     tickers_off = ", ".join(off_list.index)
     callout(
-        f"<strong>{n_off} ticker fuori soglia</strong>: {tickers_off}. "
-        f"La pagina <strong>Ribilanciamento</strong> (in arrivo) suggerirà come "
-        f"correggere lo scostamento con il prossimo versamento.",
+        f"<strong>{n_off} ticker(s) off threshold</strong>: {tickers_off}. "
+        f"The <strong>Rebalancing</strong> page suggests how to correct the "
+        f"deviation with your next contribution.",
         kind="warning",
     )
 else:
     callout(
-        "Tutti i ticker sono entro la soglia di tolleranza.",
+        "All tickers are within the tolerance threshold.",
         kind="success",
     )
 
@@ -118,7 +118,7 @@ gcol1, gcol2 = st.columns(2)
 
 # -- Donut chart: allocazione corrente
 with gcol1:
-    st.subheader("Allocazione corrente")
+    st.subheader("Current allocation")
 
     # Mostro solo i ticker con peso > 0 (escludo target a 0 mai comprati)
     present = alloc[alloc["weight_current"] > 0].sort_values(
@@ -146,8 +146,8 @@ with gcol1:
     ax.set_aspect("equal")
     cs.add_title(
         fig,
-        "Composizione",
-        subtitle=f"{len(present)} posizioni · "
+        "Composition",
+        subtitle=f"{len(present)} positions · "
                  f"{prices.index[-1]:%d/%m/%Y}",
         source=None,
     )
@@ -155,7 +155,7 @@ with gcol1:
 
 # -- Bar chart orizzontale: scostamenti
 with gcol2:
-    st.subheader("Scostamento dal target")
+    st.subheader("Deviation from target")
 
     # Ordino per scostamento per leggibilità
     bar_df = alloc.sort_values("deviation").copy()
@@ -199,8 +199,8 @@ with gcol2:
 
     cs.add_title(
         fig,
-        "Scostamento per ticker",
-        subtitle=f"linee tratteggiate = soglia ±{threshold:.0%}",
+        "Deviation from ticker",
+        subtitle=f"dashed line = threshold ±{threshold:.0%}",
         source=None,
     )
     st.pyplot(fig, use_container_width=True)
@@ -210,12 +210,12 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # TABELLA DETTAGLIO
 # --------------------------------------------------------------------------- #
-st.subheader("Dettaglio per ticker")
+st.subheader("Breakdown by ticker")
 
 view = alloc.copy()
 view["status"] = view.apply(
-    lambda r: "🔴 Fuori soglia" if r["off_threshold"]
-              else "🟢 In linea",
+    lambda r: "🔴 Off threshold" if r["off_threshold"]
+              else "🟢 On target",
     axis=1,
 )
 
@@ -226,27 +226,27 @@ view["deviation"] = view["deviation"] * 100
 
 view = view[["name", "weight_current", "weight_target",
              "deviation", "status"]].rename(columns={
-    "name": "Nome",
-    "weight_current": "Peso corrente",
-    "weight_target": "Peso target",
-    "deviation": "Scostamento (pp)",
-    "status": "Stato",
+    "name": "Name",
+    "weight_current": "Current weight",
+    "weight_target": "Target weight",
+    "deviation": "Deviation (pp)",
+    "status": "Status",
 })
 
 st.dataframe(
     view,
     use_container_width=True,
     column_config={
-        "Peso corrente":    st.column_config.ProgressColumn(
-                                format="%.2f%%", min_value=0, max_value=100),
-        "Peso target":      st.column_config.ProgressColumn(
-                                format="%.2f%%", min_value=0, max_value=100),
-        "Scostamento (pp)": st.column_config.NumberColumn(format="%+.2f"),
+        "Current weight": st.column_config.ProgressColumn(
+                              format="%.2f%%", min_value=0, max_value=100),
+        "Target weight":  st.column_config.ProgressColumn(
+                              format="%.2f%%", min_value=0, max_value=100),
+        "Deviation (pp)": st.column_config.NumberColumn(format="%+.2f"),
     },
 )
 
 st.caption(
-    "**Scostamento** = peso corrente − peso target, in punti percentuali. "
-    "Un ticker è considerato fuori soglia se il valore assoluto dello "
-    f"scostamento supera **{threshold:.0%}**."
+    "**Deviation** = current weight − target weight, in percentage points. "
+    "A ticker is off threshold when the absolute deviation exceeds "
+    f"**{threshold:.0%}**."
 )

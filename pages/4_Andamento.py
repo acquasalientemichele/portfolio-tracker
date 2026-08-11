@@ -24,7 +24,7 @@ from streamlit_components import kpi_card
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
-st.set_page_config(page_title="Andamento", page_icon="💰", layout="wide")
+st.set_page_config(page_title="Value over time", layout="wide")
 
 inject_css()
 
@@ -46,14 +46,14 @@ pnl_pct = pnl / last_i if last_i else 0.0
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("Andamento del valore")
-st.caption("Valore di mercato del portafoglio vs capitale investito cumulato")
+st.title("Portfolio value over time")
+st.caption("Portfolio market value vs cumulative invested capital")
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    kpi_card("Valore corrente", f"{last_v:,.2f} €")
+    kpi_card("Current value", f"{last_v:,.2f} €")
 with col2:
-    kpi_card("Capitale investito", f"{last_i:,.2f} €")
+    kpi_card("Invested capital", f"{last_i:,.2f} €")
 with col3:
     kpi_card("P&L €", f"{pnl:+,.2f} €")
 with col4:
@@ -64,9 +64,6 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # GRAFICO (Plotly interattivo)
 # --------------------------------------------------------------------------- #
-# Replica della sezione 7 del notebook. Stile FT: linee chiare, area shaded
-# discreta, marker + label sui valori finali. Interattività: hover unificato
-# mostra valore + capitale investito alla data del cursore.
 
 value = vs["value"].values
 invested = invested_cum.values
@@ -127,19 +124,19 @@ fig.add_trace(go.Scatter(
 # Linea capitale investito (tratteggiata, grigia)
 fig.add_trace(go.Scatter(
     x=vs.index, y=invested,
-    name="Capitale investito",
+    name="Invested capital",
     mode="lines",
     line=dict(color=ps.COLORS["invested"], width=1.4, dash="dash"),
-    hovertemplate="<b>€%{y:,.0f}</b><extra>Capitale investito</extra>",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>Invested capital</extra>",
 ))
 
 # Linea valore portafoglio (principale, navy)
 fig.add_trace(go.Scatter(
     x=vs.index, y=value,
-    name="Valore portafoglio",
+    name="Portfolio value",
     mode="lines",
     line=dict(color=ps.COLORS["value"], width=2.2),
-    hovertemplate="<b>€%{y:,.0f}</b><extra>Valore portafoglio</extra>",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>Portfolio value</extra>",
 ))
 
 # Marker sul valore finale (grande, navy)
@@ -166,11 +163,6 @@ fig.add_trace(go.Scatter(
 ps.style_axes(fig, y_format="euro", x_is_date=True)
 ps.hover_unified(fig)
 
-# Etichette dei valori finali posizionate come "tick speciali" sull'asse Y
-# (sul lato sinistro del grafico, allineate ai tick regolari) con font
-# più grande. Sostituisce ps.add_endline_annotations che avrebbe messo
-# le etichette a destra dopo i marker. Qui i valori sono in €, hanno
-# senso come tick sull'asse Y.
 tick_annotations = [
     dict(
         text=f"<b>€{last_v:,.0f}</b>",
@@ -200,10 +192,10 @@ fig.update_layout(annotations=existing + tick_annotations)
 sign = "+" if pnl >= 0 else "−"
 ps.apply_layout(
     fig,
-    title="Portfolio Performance",
+    title="Portfolio value",
     subtitle=f"€{last_v:,.0f}   ·   {sign}€{abs(pnl):,.0f} "
-             f"({pnl_pct:+.1%}) dall'inizio",
-    source=f"Fonte: yfinance (EOD)  ·  Aggiornato {vs.index[-1].date()}",
+             f"({pnl_pct:+.1%}) since inception",
+    source=f"Source: yfinance (EOD)  ·  Updated {vs.index[-1].date()}",
     height=500,   # leggermente più alto del default per aspect ratio simile a matplotlib originale
 )
 
@@ -215,23 +207,23 @@ st.plotly_chart(fig, use_container_width=True, config=ps.PLOTLY_CONFIG)
 # --------------------------------------------------------------------------- #
 # FOOTER DIDATTICO
 # --------------------------------------------------------------------------- #
-with st.expander("ℹ️ Come leggere il grafico"):
+with st.expander("How to read this chart"):
     st.markdown(
         """
-        - **Linea blu** (continua): valore di mercato del portafoglio, giorno per giorno.
-        - **Linea grigia** (tratteggiata): capitale investito cumulato, cioè
-          quanto hai effettivamente versato fino a quel momento. Sale a scalini
-          ad ogni nuovo acquisto, è piatta tra un acquisto e l'altro.
-        - **Area verde**: il valore di mercato è sopra il capitale investito
-          → il portafoglio è in guadagno "a vista".
-        - **Area rossa**: il valore di mercato è sotto il capitale investito
-          → il portafoglio è in perdita "a vista".
+        - **Blue line** (solid): the portfolio's market value, day by day.
+        - **Grey line** (dashed): cumulative invested capital — how much you've
+          actually paid in up to that point. It steps up at each new purchase
+          and stays flat in between.
+        - **Green area**: market value is above invested capital
+          → the portfolio is in unrealised gain.
+        - **Red area**: market value is below invested capital
+          → the portfolio is in unrealised loss.
 
-        Questo grafico mostra il **P&L in valore assoluto**, non il rendimento
-        percentuale. Per le metriche di performance percentuali vedi la pagina
-        **Performance** (TWR e MWR).
+        This chart shows **P&L in absolute value**, not percentage return.
+        For percentage performance metrics see the **Performance** page
+        (TWR and MWR).
 
-        Il valore di mercato è **al lordo** di bollo e imposta sulle plusvalenze:
-        per il riepilogo netto vedi la pagina **Costi e fiscalità**.
+        Market value is **gross** of stamp duty and capital-gains tax; for the
+        net figure see the **Costs & tax** page.
         """
     )
