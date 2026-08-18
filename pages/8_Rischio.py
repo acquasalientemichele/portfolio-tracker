@@ -28,7 +28,7 @@ from streamlit_components import kpi_card, callout
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
-st.set_page_config(page_title="Rischio", page_icon="📉", layout="wide")
+st.set_page_config(page_title="Risk", layout="wide")
 
 inject_css()
 
@@ -55,25 +55,25 @@ rf_default = rk.DEFAULT_RISK_FREE_RATE
 # --------------------------------------------------------------------------- #
 # HEADER
 # --------------------------------------------------------------------------- #
-st.title("Rischio")
+st.title("Risk")
 st.caption(
-    "Metriche di rischio e drawdown analysis. "
-    "Le metriche annualizzate vanno lette tenendo conto della storia disponibile."
+    "Risk metrics and drawdown analysis. "
+    "Annualised metrics should be read in light of the available history."
 )
 
 # Parametro avanzato: risk-free rate (impatta Sharpe e Sortino)
-with st.expander("⚙️ Parametri di calcolo"):
+with st.expander("Calculation parameters"):
     rf_annual = st.slider(
-        "Risk-free rate annualizzato (%)",
+        "Annualised risk-free rate (%)",
         min_value=0.0, max_value=6.0,
         value=rf_default * 100, step=0.25,
-        help="Tasso 'risk-free' usato per Sharpe e Sortino. "
-             "Default: 3% (rendimento BTP 3y). "
-             "Aumentarlo riduce Sharpe e Sortino.",
+        help="'Risk-free' rate used for Sharpe and Sortino. "
+             "Default: 3% (3-year BTP yield). "
+             "Raising it lowers Sharpe and Sortino.",
     ) / 100
     st.caption(
-        "💡 Modificare il risk-free rate non cambia volatilità, beta o drawdown. "
-        "Impatta solo Sharpe e Sortino, che sono rendimenti *al netto del riferimento*."
+        "Changing the risk-free rate does not affect volatility, beta or drawdown. "
+        "It only impacts Sharpe and Sortino, which are returns *net of the reference rate*."
     )
 
 # Calcolo completo via risk_summary
@@ -88,22 +88,22 @@ period_days = metrics["period_days"]
 period_years = metrics["period_years"]
 
 CONFIDENCE_CONFIG = {
-    "VERY_LOW": ("danger",  "Affidabilità molto bassa",
-                 "le metriche annualizzate su < 6 mesi di storia sono "
-                 "essenzialmente rumore"),
-    "LOW":      ("warning", "Affidabilità bassa",
-                 "su < 1 anno di storia, l'annualizzazione tende a "
-                 "sovrastimare la performance attesa"),
-    "MEDIUM":   ("info",    "Affidabilità media",
-                 "su 1-3 anni di storia, le metriche cominciano a essere "
-                 "indicative ma con ampi intervalli di confidenza"),
-    "HIGH":     ("success", "Affidabilità alta",
-                 "con > 3 anni di storia, le metriche sono statisticamente "
+    "VERY_LOW": ("danger",  "Very low confidence",
+                 "annualised metrics on < 6 months of history are "
+                 "essentially noise"),
+    "LOW":      ("warning", "Low confidence",
+                 "on < 1 year of history, annualisation tends to "
+                 "overstate expected performance"),
+    "MEDIUM":   ("info",    "Medium confidence",
+                 "on 1-3 years of history, metrics start to be "
+                 "indicative but with wide confidence intervals"),
+    "HIGH":     ("success", "High confidence",
+                 "with > 3 years of history, metrics are statistically "
                  "informative"),
 }
 
 kind, title, descr = CONFIDENCE_CONFIG[conf]
-body = f"{period_days} giorni di storia ({period_years} anni): {descr}."
+body = f"{period_days} days of history ({period_years} years): {descr}."
 callout(body, kind=kind, title=title)
 
 st.divider()
@@ -111,7 +111,7 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # METRICHE DI SINTESI (2 righe × 3 colonne)
 # --------------------------------------------------------------------------- #
-st.subheader("Metriche")
+st.subheader("Metrics")
 
 
 def fmt_ratio(v: float) -> str:
@@ -134,10 +134,10 @@ def fmt_pct(v: float, signed: bool = False) -> str:
 row1c1, row1c2, row1c3 = st.columns(3)
 with row1c1:
     kpi_card(
-        "Volatilità annualizzata",
+        "Annualised volatility",
         fmt_pct(metrics["volatility_annualized"]),
-        help="Deviazione standard dei rendimenti giornalieri × √252. "
-             "È la misura standard di rischio per portafogli azionari.",
+        help="Standard deviation of daily returns × √252. "
+             "The standard risk measure for equity portfolios.",
     )
 with row1c2:
     kpi_card(
@@ -145,10 +145,10 @@ with row1c2:
         fmt_ratio(metrics["sharpe_ratio"]),
         delta=f"vs rf {rf_annual:.1%}",
         delta_kind="neutral",
-        help="(Rendimento ann. − risk-free) / volatilità ann. "
-             "Misura il rendimento per unità di rischio totale. "
-             "Indicativamente: > 1 buono, > 2 eccellente, < 0 il portafoglio "
-             "rende meno del risk-free.",
+        help="(Annualised return − risk-free) / annualised volatility. "
+             "Return per unit of total risk. "
+             "As a rule of thumb: > 1 good, > 2 excellent, < 0 the portfolio "
+             "returns less than the risk-free rate.",
     )
 with row1c3:
     kpi_card(
@@ -156,9 +156,9 @@ with row1c3:
         fmt_ratio(metrics["sortino_ratio"]),
         delta=f"vs rf {rf_annual:.1%}",
         delta_kind="neutral",
-        help="Come Sharpe ma usa solo la volatilità *downside* (rendimenti < 0). "
-             "Filosoficamente più giusto per chi considera 'rischio' solo le "
-             "perdite. ∞ = nessun rendimento negativo in tutta la storia.",
+        help="Like Sharpe but uses only *downside* volatility (returns < 0). "
+             "Philosophically fairer if you consider only losses to be 'risk'. "
+             "∞ = no negative return over the whole history.",
     )
 
 # Riga 2: beta, max drawdown, rendimento annualizzato
@@ -167,28 +167,28 @@ with row2c1:
     kpi_card(
         f"Beta vs {benchmark_ticker}",
         fmt_ratio(metrics["beta_vs_benchmark"]),
-        help="Sensibilità del portafoglio ai movimenti del benchmark. "
-             "= 1: si muove come il benchmark. "
-             "> 1: più volatile del benchmark. "
-             "< 1: meno volatile.",
+        help="Sensitivity of the portfolio to benchmark moves. "
+             "= 1: moves like the benchmark. "
+             "> 1: more volatile than the benchmark. "
+             "< 1: less volatile.",
     )
 with row2c2:
     in_dd = metrics["is_currently_in_drawdown"]
     kpi_card(
         "Max drawdown",
         fmt_pct(metrics["max_drawdown"], signed=True),
-        delta="in corso" if in_dd else "recuperato",
+        delta="ongoing" if in_dd else "recovered",
         delta_kind="negative" if in_dd else "positive",
-        help="Massima perdita peak-to-trough nel periodo. "
-             "È la metrica più 'pancia' del rischio: è quanto vedi rosso "
-             "nel momento peggiore.",
+        help="Largest peak-to-trough loss over the period. "
+             "The most 'gut-level' risk metric: how much red you see at "
+             "the worst moment.",
     )
 with row2c3:
     kpi_card(
-        "Rendimento annualizzato",
+        "Annualised return",
         fmt_pct(metrics["annualized_return"], signed=True),
-        help="Rendimento geometrico annualizzato del portafoglio. "
-             "Su periodi brevi tende a sovrastimare la performance attesa.",
+        help="Geometric annualised return of the portfolio. "
+             "Over short periods it tends to overstate expected performance.",
     )
 
 st.divider()
@@ -240,25 +240,22 @@ for i, drow in top_dds.iterrows():
         marker=dict(color=ps.COLORS["loss"], size=11,
                     line=dict(color="white", width=1.5)),
         showlegend=False,
-        hovertemplate=f"<b>#{i+1}: {depth:+.2%}</b>"
-                      f"{'  (in corso)' if not drow['recovered'] else ''}"
+         hovertemplate=f"<b>#{i+1}: {depth:+.2%}</b>"
+                      f"{'  (ongoing)' if not drow['recovered'] else ''}"
                       f"<extra></extra>",
     ))
 
-    # Annotation
+    # Annotation — sempre sotto il punto e centrata, per leggibilità uniforme
     label = f"#{i+1}: {depth:+.2%}"
     if not drow["recovered"]:
-        label += "  (in corso)"
-
-    yshift = -14 if i == 0 else 14
-    yanchor = "top" if i == 0 else "bottom"
+        label += "  (ongoing)"
 
     fig.add_annotation(
         x=bottom_date, y=depth,
         text=f"<b>{label}</b>",
         showarrow=False,
-        xanchor="left", yanchor=yanchor,
-        xshift=8, yshift=yshift,
+        xanchor="center", yanchor="top",
+        yshift=-12,
         font=dict(size=10, color=ps.COLORS["loss"], family="Inter, sans-serif"),
     )
 
@@ -276,9 +273,9 @@ max_dd_pct = metrics["max_drawdown"]
 max_dd_dur = metrics["max_drawdown_duration_days"] or "—"
 ps.apply_layout(
     fig,
-    title="Drawdown nel tempo",
-    subtitle=f"Perdita percentuale dal peak running.  "
-             f"Max DD: {max_dd_pct:+.2%},  durata {max_dd_dur} giorni",
+    title="Drawdown over time",
+    subtitle=f"Percentage loss from the running peak.  "
+             f"Max DD: {max_dd_pct:+.2%},  duration {max_dd_dur} days",
     source=None,
     height=380,   # più basso del default 420 perché il DD è "underwater" (poca aria sopra)
 )
@@ -292,26 +289,26 @@ st.subheader(f"Top {rk.DEFAULT_TOP_N_DRAWDOWNS} drawdowns")
 
 if len(top_dds) == 0:
     callout(
-        f"Nessun drawdown significativo (> "
-        f"{rk.DEFAULT_DRAWDOWN_THRESHOLD:.1%}) registrato finora.",
+        f"No significant drawdown (> "
+        f"{rk.DEFAULT_DRAWDOWN_THRESHOLD:.1%}) recorded so far.",
         kind="success",
     )
 else:
     view = top_dds.copy()
     view["status"] = view["recovered"].apply(
-        lambda r: "🟢 Recuperato" if r else "🔴 In corso"
+        lambda r: "🟢 Recovered" if r else "🔴 Ongoing"
     )
     view["depth"] = view["depth"] * 100  # in %
 
     view = view[["start_date", "bottom_date", "end_date", "depth",
                  "duration_days", "recovery_days", "status"]].rename(columns={
-        "start_date":    "Inizio",
-        "bottom_date":   "Fondo",
-        "end_date":      "Recupero",
-        "depth":         "Profondità",
-        "duration_days": "Durata (gg)",
-        "recovery_days": "Recovery (gg)",
-        "status":        "Stato",
+        "start_date":    "Start",
+        "bottom_date":   "Bottom",
+        "end_date":      "Recovery",
+        "depth":         "Depth",
+        "duration_days": "Duration (d)",
+        "recovery_days": "Recovery (d)",
+        "status":        "Status",
     })
 
     st.dataframe(
@@ -319,19 +316,19 @@ else:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Inizio":        st.column_config.DateColumn(format="DD/MM/YYYY"),
-            "Fondo":         st.column_config.DateColumn(format="DD/MM/YYYY"),
-            "Recupero":      st.column_config.DateColumn(format="DD/MM/YYYY"),
-            "Profondità":    st.column_config.NumberColumn(format="%+.2f%%"),
-            "Durata (gg)":   st.column_config.NumberColumn(format="%d"),
-            "Recovery (gg)": st.column_config.NumberColumn(format="%d"),
+            "Start":        st.column_config.DateColumn(format="DD/MM/YYYY"),
+            "Bottom":       st.column_config.DateColumn(format="DD/MM/YYYY"),
+            "Recovery":     st.column_config.DateColumn(format="DD/MM/YYYY"),
+            "Depth":        st.column_config.NumberColumn(format="%+.2f%%"),
+            "Duration (d)": st.column_config.NumberColumn(format="%d"),
+            "Recovery (d)": st.column_config.NumberColumn(format="%d"),
         },
     )
 
     st.caption(
-        "**Durata** = giorni dal peak al fondo del drawdown. "
-        "**Recovery** = giorni dal fondo al recupero del peak. "
-        "I drawdown in corso non hanno data di recupero."
+        "**Duration** = days from peak to the bottom of the drawdown. "
+        "**Recovery** = days from the bottom back to the peak. "
+        "Ongoing drawdowns have no recovery date."
     )
 
 st.divider()
@@ -339,55 +336,51 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # INTERPRETAZIONE TESTUALE
 # --------------------------------------------------------------------------- #
-st.subheader("Interpretazione")
+st.subheader("Interpretation")
 
-# Il modulo risk.py genera già un'interpretazione testuale ricca
-# che incorpora confidence, vol, Sharpe e drawdown.
 callout(metrics["interpretation"], kind="info")
 
 # --------------------------------------------------------------------------- #
 # EXPANDER DIDATTICO
 # --------------------------------------------------------------------------- #
-with st.expander("ℹ️ Promemoria sulle metriche"):
+with st.expander("Metrics reminder"):
     st.markdown(
         """
-        **Volatilità annualizzata**
-        Deviazione standard dei rendimenti giornalieri × √252.
-        Misura quanto i rendimenti si discostano dalla media — *quanto balla*
-        il portafoglio. Tipicamente 10-15% per portafogli azionari globali,
-        20%+ per single-stock o emerging.
+        **Annualised volatility**
+        Standard deviation of daily returns × √252.
+        Measures how far returns deviate from the mean — *how much the
+        portfolio swings*. Typically 10-15% for global equity portfolios,
+        20%+ for single stocks or emerging markets.
 
         **Sharpe ratio**
-        `(Rendimento ann. − Rf) / Volatilità ann.`
-        Quanti euro di rendimento "extra" guadagni per ogni euro di
-        volatilità che sopporti. > 1 buono, > 2 eccellente. Sotto 0
-        significa che il portafoglio rende meno del risk-free, e quindi
-        stai prendendo rischio per nulla.
+        `(Annualised return − Rf) / Annualised volatility`
+        How much "extra" return you earn per unit of volatility you bear.
+        > 1 good, > 2 excellent. Below 0 means the portfolio returns less
+        than the risk-free rate — you're taking risk for nothing.
 
         **Sortino ratio**
-        Variante dello Sharpe che usa solo la volatilità *negativa*.
-        Filosoficamente: la volatilità positiva (rendimenti sopra zero)
-        non è "rischio" per un investitore, solo quella negativa lo è.
-        Su portafogli sempre in crescita può essere ∞ (nessun rendimento
-        negativo in tutta la storia).
+        A variant of Sharpe that uses only *downside* volatility.
+        Philosophically: upside volatility (returns above zero) isn't
+        "risk" for an investor, only the downside is. For portfolios that
+        only grow it can be ∞ (no negative return over the whole history).
 
         **Beta vs benchmark**
-        Sensibilità del portafoglio ai movimenti del benchmark.
-        β = 1: si muove come il benchmark.
-        β = 1.5: oscilla del 50% in più del benchmark.
-        β = 0.5: oscilla la metà del benchmark.
+        Sensitivity of the portfolio to benchmark moves.
+        β = 1: moves like the benchmark.
+        β = 1.5: swings 50% more than the benchmark.
+        β = 0.5: swings half as much as the benchmark.
 
         **Max drawdown**
-        Massima caduta percentuale dal picco più recente.
-        È la metrica più "pancia" del rischio: quanto rosso vedi al
-        momento peggiore. Per portafogli azionari globali, drawdown del
-        20-30% sono fisiologici in 5+ anni di storia. Crash come 2008,
-        2020 hanno raggiunto -35% / -50%.
+        Largest percentage fall from the most recent peak.
+        The most "gut-level" risk metric: how much red you see at the worst
+        moment. For global equity portfolios, 20-30% drawdowns are normal
+        over 5+ years of history. Crashes like 2008 and 2020 reached
+        -35% / -50%.
 
         **Confidence level**
-        Indicatore di quanto fidarsi delle metriche annualizzate. La
-        regola dei "pollici" finanziari: serve almeno 1 anno di storia
-        per metriche indicative, 3+ anni per metriche statisticamente
-        robuste. Sotto 6 mesi, l'annualizzazione è essenzialmente rumore.
+        An indicator of how much to trust the annualised metrics. The
+        financial rule of thumb: you need at least 1 year of history for
+        indicative metrics, 3+ years for statistically robust ones. Below
+        6 months, annualisation is essentially noise.
         """
     )
