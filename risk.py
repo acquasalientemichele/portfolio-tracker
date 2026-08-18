@@ -353,30 +353,29 @@ def _interpret_volatility(vol: float) -> str:
         return ""
     vol_pct = vol * 100
     if vol < 0.08:
-        return f"bassa volatilità ({vol_pct:.1f}%, sotto un obbligazionario tipico)"
+        return f"low volatility ({vol_pct:.1f}%, below a typical bond portfolio)"
     elif vol < 0.12:
-        return f"volatilità moderata ({vol_pct:.1f}%, in linea con un bilanciato)"
+        return f"moderate volatility ({vol_pct:.1f}%, in line with a balanced portfolio)"
     elif vol < 0.18:
-        return f"volatilità normale ({vol_pct:.1f}%, in linea con un azionario globale)"
+        return f"normal volatility ({vol_pct:.1f}%, in line with global equities)"
     else:
-        return f"volatilità elevata ({vol_pct:.1f}%, sopra un azionario globale standard)"
+        return f"elevated volatility ({vol_pct:.1f}%, above standard global equities)"
 
 
 def _interpret_confidence(conf: str, n_days: int) -> str:
     """Caveat sull'affidabilità delle metriche."""
     if conf == 'VERY_LOW':
-        return (f"I numeri vanno presi con molta cautela: con soli {n_days} "
-                "giorni di storia le metriche statistiche sono dominate dal "
-                "rumore.")
+        return (f"Treat these figures with great caution: with only {n_days} "
+                "days of history, the statistical metrics are dominated by noise.")
     elif conf == 'LOW':
-        return (f"I numeri vanno presi con cautela: con {n_days} giorni di "
-                "storia metriche come Sharpe ratio non sono ancora "
-                "statisticamente significative.")
+        return (f"Treat these figures with caution: with {n_days} days of "
+                "history, metrics like the Sharpe ratio are not yet "
+                "statistically significant.")
     elif conf == 'MEDIUM':
-        return ("Le metriche di base sono affidabili; lo Sharpe diventerà più "
-                "robusto con altri anni di storia.")
+        return ("The basic metrics are reliable; the Sharpe ratio will become "
+                "more robust with a few more years of history.")
     else:  # HIGH
-        return f"L'orizzonte di {n_days // 365} anni rende le metriche statisticamente robuste."
+        return f"The {n_days // 365}-year horizon makes the metrics statistically robust."
 
 
 def generate_interpretation(metrics: dict) -> str:
@@ -386,7 +385,7 @@ def generate_interpretation(metrics: dict) -> str:
     # Frase 1: volatilità contestualizzata
     vol_text = _interpret_volatility(metrics.get('volatility_annualized', float('nan')))
     if vol_text:
-        parts.append(f"Il portafoglio mostra {vol_text}.")
+        parts.append(f"The portfolio shows {vol_text}.")
 
     # Frase 2: caveat sull'affidabilità
     conf_text = _interpret_confidence(
@@ -400,17 +399,17 @@ def generate_interpretation(metrics: dict) -> str:
     if max_dd is not None and max_dd < -0.05:
         if metrics.get('is_currently_in_drawdown'):
             start = metrics.get('max_drawdown_start')
-            start_str = start.strftime('%d %b %Y') if start else 'data ignota'
+            start_str = start.strftime('%d %b %Y') if start else 'unknown date'
             parts.append(
-                f"Attualmente in drawdown del {abs(max_dd)*100:.1f}% "
-                f"iniziato il {start_str}."
+                f"Currently in a {abs(max_dd)*100:.1f}% drawdown "
+                f"that started on {start_str}."
             )
         else:
             duration = metrics.get('max_drawdown_duration_days', 0)
             recovery = metrics.get('max_drawdown_recovery_days', 0)
             parts.append(
-                f"Drawdown massimo storico del {abs(max_dd)*100:.1f}% "
-                f"({duration}g di durata, recuperato in {recovery}g)."
+                f"Largest historical drawdown of {abs(max_dd)*100:.1f}% "
+                f"({duration}d duration, recovered in {recovery}d)."
             )
 
     return " ".join(parts)
@@ -441,7 +440,7 @@ def risk_summary(twr_cum: pd.Series,
     dict con metriche, confidence flags, drawdown analysis, interpretazione.
     """
     if bench_norm is None or len(bench_norm) == 0:
-        raise ValueError("bench_norm è obbligatorio per il calcolo del beta")
+        raise ValueError("bench_norm is required to compute beta")
 
     # Rendimenti giornalieri del portafoglio
     returns_p = compute_returns(twr_cum)
