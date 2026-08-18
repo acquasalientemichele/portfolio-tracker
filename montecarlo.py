@@ -392,19 +392,18 @@ def _generate_interpretation(calibration: dict, simulation: dict) -> str:
     n_years_cal = calibration['n_years']
     if n_years_cal < 3:
         parts.append(
-            f"⚠️ La calibrazione si basa su soli {n_years_cal:.1f} anni di "
-            f"storia: potrebbe non includere eventi estremi (crisi 2008, "
-            f"crash 2020). Le code della distribuzione potrebbero essere "
-            f"sottostimate."
+            f"The calibration is based on only {n_years_cal:.1f} years of "
+            f"history: it may not include extreme events (2008 crisis, 2020 "
+            f"crash). The tails of the distribution may be underestimated."
         )
     elif n_years_cal < 10:
         parts.append(
-            f"La calibrazione si basa su {n_years_cal:.1f} anni di storia "
-            f"del portafoglio target."
+            f"The calibration is based on {n_years_cal:.1f} years of the "
+            f"target portfolio's history."
         )
     else:
         parts.append(
-            f"Calibrazione robusta su {n_years_cal:.0f} anni di storia."
+            f"Robust calibration on {n_years_cal:.0f} years of history."
         )
 
     # Frase 2: risultato per l'orizzonte più lungo
@@ -419,17 +418,17 @@ def _generate_interpretation(calibration: dict, simulation: dict) -> str:
         contributed = h_data['total_contributed']
         multiplier_median = median_nom / contributed
         parts.append(
-            f"A {max_h} anni: il valore mediano del portafoglio è stimato a "
-            f"€{median_nom:,.0f} nominali (€{median_real:,.0f} in potere "
-            f"d'acquisto attuale), su €{contributed:,.0f} versati ({multiplier_median:.2f}× "
-            f"il capitale). Range probabile (10°-90° percentile): "
-            f"€{p10:,.0f} - €{p90:,.0f}."
+            f"At {max_h} years: the portfolio's median value is estimated at "
+            f"€{median_nom:,.0f} nominal (€{median_real:,.0f} in today's "
+            f"purchasing power), on €{contributed:,.0f} contributed "
+            f"({multiplier_median:.2f}× the capital). Likely range "
+            f"(10th-90th percentile): €{p10:,.0f} - €{p90:,.0f}."
         )
 
     parts.append(
-        "Caveat metodologici: bootstrap IID (no clustering di volatilità); "
-        "ritenute fiscali sui dividendi non incluse; assume mantenimento "
-        "del PAC anche durante drawdown."
+        "Methodological caveats: IID bootstrap (no volatility clustering); "
+        "dividend withholding taxes not included; assumes contributions "
+        "continue even during drawdowns."
     )
 
     return " ".join(parts)
