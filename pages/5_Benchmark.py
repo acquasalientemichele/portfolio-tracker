@@ -48,12 +48,25 @@ twr_net = pf.time_weighted_return(vs_net)
 # Scarico il benchmark — riuso la cache di streamlit_utils
 bench_df = fetch_prices((benchmark_ticker,), start=vs.index.min().strftime("%Y-%m-%d"))
 bench = bench_df[benchmark_ticker].reindex(vs.index).ffill()
-bench_norm = bench / bench.iloc[0]
 
-# Allineo le serie sulla stessa griglia temporale
-common_idx = twr.index.intersection(bench_norm.index)
-twr_a = twr.reindex(common_idx)
-bench_a = bench_norm.reindex(common_idx)
+# Finestra comune: solo le date in cui SIA il portafoglio SIA il benchmark
+# hanno dati reali. Serve quando il benchmark è quotato dopo l'inizio del
+# portafoglio (es. VWCE nasce ad agosto 2019, ma la demo parte a giugno):
+# senza questo, bench.iloc[0] cadrebbe su un NaN pre-quotazione e propagherebbe
+# NaN a tutta la serie. Ri-normalizzo ENTRAMBE a 1.0 dal primo giorno comune,
+# così il confronto (e quindi l'alpha) parte da una base allineata.
+common_idx = twr.dropna().index.intersection(bench.dropna().index)
+
+if len(common_idx) == 0:
+    callout(
+        f"The benchmark <strong>{benchmark_ticker}</strong> has no overlapping "
+        f"history with the portfolio. Check the ticker in the settings sheet.",
+        kind="danger",
+    )
+    st.stop()
+    
+twr_a = twr.reindex(common_idx) / twr.reindex(common_idx).iloc[0]
+bench_a = bench.reindex(common_idx) / bench.reindex(common_idx).iloc[0]
 
 # Valori finali
 last_p = float(twr_a.iloc[-1])
