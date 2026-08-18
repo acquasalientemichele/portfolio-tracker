@@ -40,7 +40,7 @@ def load_transactions(path: str | Path) -> pd.DataFrame:
     # validazione colonne
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
-        raise ValueError(f"Colonne mancanti nel file: {missing}")
+        raise ValueError(f"Missing columns in the file: {missing}")
 
     # rimuove righe completamente vuote
     df = df.dropna(how="all").copy()
@@ -50,7 +50,7 @@ def load_transactions(path: str | Path) -> pd.DataFrame:
     valid_ops = {"BUY", "SELL", "DIV"}
     bad = set(df["operation"].dropna().unique()) - valid_ops
     if bad:
-        raise ValueError(f"Operazioni non valide {bad}. Ammesse: {valid_ops}")
+        raise ValueError(f"Invalid operations {bad}. Allowed: {valid_ops}")
 
     # tipi numerici
     for col in ["quantity", "price", "fees"]:
@@ -381,30 +381,30 @@ def compare_twr_mwr(twr_cum: pd.Series, mwr_result: dict | None) -> dict:
     # Interpretazione testuale
     NEUTRAL_BAND = 0.005   # ±0.5 pp = "sostanzialmente neutro"
     if abs(spread) < NEUTRAL_BAND:
-        interp = ("Il timing dei tuoi versamenti è risultato sostanzialmente "
-                  "neutro: il rendimento effettivo (MWR) coincide con la "
-                  "performance pura degli strumenti (TWR).")
+        interp = ("The timing of your contributions was essentially neutral: "
+                  "your actual return (MWR) matches the pure performance of the "
+                  "instruments (TWR).")
     elif spread > 0:
         interp = (
-            f"Il timing dei tuoi versamenti è stato vantaggioso: il rendimento "
-            f"effettivo (MWR {mwr_ann*100:+.2f}%) supera quello degli strumenti "
-            f"(TWR {twr_ann*100:+.2f}%) di {spread*100:+.2f} pp annualizzati. "
-            f"Hai mediamente investito di più nei periodi di mercato basso."
+            f"The timing of your contributions was favourable: your actual "
+            f"return (MWR {mwr_ann*100:+.2f}%) exceeds that of the instruments "
+            f"(TWR {twr_ann*100:+.2f}%) by {spread*100:+.2f} pp annualised. "
+            f"On average you invested more when the market was low."
         )
     else:
         interp = (
-            f"Il timing dei tuoi versamenti è stato svantaggioso: il rendimento "
-            f"effettivo (MWR {mwr_ann*100:+.2f}%) è inferiore a quello degli "
-            f"strumenti (TWR {twr_ann*100:+.2f}%) di {spread*100:.2f} pp "
-            f"annualizzati. Hai mediamente investito di più nei periodi di "
-            f"mercato alto."
+            f"The timing of your contributions was unfavourable: your actual "
+            f"return (MWR {mwr_ann*100:+.2f}%) is below that of the instruments "
+            f"(TWR {twr_ann*100:+.2f}%) by {spread*100:.2f} pp annualised. "
+            f"On average you invested more when the market was high."
         )
 
     if mwr_result['is_short_period']:
         interp += (
-            f" ⚠️ Il portafoglio ha solo {days} giorni di storia: "
-            f"l'annualizzazione di rendimenti su periodi brevi tende a "
-            f"sovrastimare la performance attesa di lungo periodo."
+            f" ⚠️ The portfolio has only {days} days of history: "
+            f"annualizing returns over short periods tends to "
+
+            f"overestimate the performance in the long run."
         )
 
     return {
