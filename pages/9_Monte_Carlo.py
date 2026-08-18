@@ -25,7 +25,7 @@ from streamlit_components import kpi_card, callout
 # --------------------------------------------------------------------------- #
 # SETUP PAGINA
 # --------------------------------------------------------------------------- #
-st.set_page_config(page_title="Monte Carlo", page_icon="🎲", layout="wide")
+st.set_page_config(page_title="Monte Carlo", layout="wide")
 
 inject_css()
 
@@ -43,18 +43,18 @@ target = settings.get("target_allocation", {})
 # --------------------------------------------------------------------------- #
 # HEADER + GUARD
 # --------------------------------------------------------------------------- #
-st.title("Monte Carlo — Proiezione PAC")
+st.title("Monte Carlo — contribution projection")
 st.caption(
-    "Simulazione probabilistica del portafoglio nei prossimi anni, "
-    "assumendo continuazione del PAC mensile e rendimenti IID calibrati "
-    "sulla storia recente del portafoglio target."
+    "Probabilistic simulation of the portfolio over the coming years, "
+    "assuming the monthly contribution continues and IID returns calibrated "
+    "on the recent history of the target portfolio."
 )
 
 if not target:
     callout(
-        "<strong>Target allocation non configurata.</strong> "
-        "La simulazione richiede i pesi target dal foglio "
-        "<strong>settings</strong> del file Excel.",
+        "<strong>Target allocation not configured.</strong> "
+        "The simulation needs the target weights from the "
+        "<strong>settings</strong> sheet of the Excel file.",
         kind="danger",
     )
     st.stop()
@@ -68,7 +68,7 @@ if not target:
 #
 # Gli argomenti devono essere hashable: dict → tuple di items.
 @st.cache_data(
-    show_spinner="⏳ Calibrazione + 10.000 simulazioni Monte Carlo…",
+    show_spinner="Calibration + 10,000 Monte Carlo simulations…",
     ttl=3600,
 )
 def run_mc(
@@ -99,38 +99,38 @@ def run_mc(
 # --------------------------------------------------------------------------- #
 # PARAMETRI INTERATTIVI
 # --------------------------------------------------------------------------- #
-st.subheader("Parametri della simulazione")
+st.subheader("Simulation parameters")
 
 pcol1, pcol2, pcol3 = st.columns(3)
 
 with pcol1:
     initial_value = st.number_input(
-        "Valore iniziale (€)",
+        "Initial value (€)",
         min_value=0.0,
         value=round(current_value, 2),
         step=500.0,
         format="%.2f",
-        help="Default: valore corrente del portafoglio. "
-             "Puoi partire da 0 per simulare un PAC da zero.",
+        help="Default: current portfolio value. "
+             "Start from 0 to simulate a plan from scratch.",
     )
 
 with pcol2:
     monthly_pac = st.number_input(
-        "PAC mensile (€)",
+        "Monthly contribution (€)",
         min_value=0.0,
         value=500.0,
         step=50.0,
         format="%.2f",
-        help="Importo versato ogni mese. Costante per tutta la simulazione.",
+        help="Amount contributed each month. Constant across the whole simulation.",
     )
 
 with pcol3:
     inflation_pct = st.slider(
-        "Inflazione annua (%)",
+        "Annual inflation (%)",
         min_value=0.0, max_value=6.0,
         value=mc.DEFAULT_INFLATION_RATE * 100, step=0.25,
-        help="Usata per calcolare i valori reali (potere d'acquisto oggi). "
-             "Default: 2% (target BCE).",
+        help="Used to compute real values (today's purchasing power). "
+             "Default: 2% (ECB target).",
     )
     inflation_rate = inflation_pct / 100
 
@@ -139,34 +139,34 @@ pcol4, pcol5, pcol6 = st.columns(3)
 
 with pcol4:
     horizons = st.multiselect(
-        "Orizzonti (anni)",
+        "Horizons (years)",
         options=[1, 3, 5, 10, 15, 20, 25, 30],
         default=[1, 5, 10, 20],
-        help="Anni per cui calcolare i percentili nella tabella. "
-             "L'orizzonte massimo determina la lunghezza del fan chart.",
+        help="Years for which to compute the percentiles in the table. "
+             "The longest horizon sets the length of the fan chart.",
     )
 if not horizons:
-        callout("Seleziona almeno un orizzonte.", kind="warning")
+        callout("Select at least one horizon.", kind="warning")
         st.stop()
 
 with pcol5:
     n_simulations = st.select_slider(
-        "N° simulazioni",
+        "Simulations",
         options=[1_000, 5_000, 10_000, 25_000],
         value=mc.DEFAULT_N_SIMULATIONS,
         format_func=lambda n: f"{n:,}",
-        help="Più simulazioni = code più stabili ma calcolo più lento. "
-             "10.000 è un buon compromesso.",
+        help="More simulations = more stable tails but slower computation. "
+             "10,000 is a good compromise.",
     )
 
 with pcol6:
     lookback_years = st.slider(
-        "Lookback storico (anni)",
+        "Historical lookback (years)",
         min_value=3, max_value=15,
         value=7, step=1,
-        help="Quanti anni di storia usare per calibrare i rendimenti. "
-             "Più lungo = più stabile ma include regimi datati. "
-             "Più corto = più reattivo ma rumoroso.",
+        help="How many years of history to use to calibrate returns. "
+             "Longer = more stable but includes dated regimes. "
+             "Shorter = more responsive but noisier.",
     )
 
 # --------------------------------------------------------------------------- #
@@ -188,7 +188,7 @@ try:
         seed=42,
     )
 except Exception as e:
-    callout(f"Errore nella simulazione: {e}", kind="danger")
+    callout(f"Simulation error: {e}", kind="danger")
     st.stop()
 
 cal = result["calibration"]
@@ -203,28 +203,28 @@ ann_vol = cal["returns"].std() * np.sqrt(mc.TRADING_DAYS_PER_YEAR)
 # CALIBRAZIONE — pannello informativo compatto
 # --------------------------------------------------------------------------- #
 st.divider()
-st.subheader("Calibrazione storica")
+st.subheader("Historical calibration")
 
 ccol1, ccol2, ccol3 = st.columns(3)
 with ccol1:
     kpi_card(
-        "Rendimento storico ann.",
+        "Historical annual return",
         f"{ann_return:+.2%}",
-        help="Rendimento geometrico annualizzato calcolato sul periodo di lookback.",
+        help="Geometric annualised return computed over the lookback period.",
     )
 with ccol2:
     kpi_card(
-        "Volatilità storica ann.",
+        "Historical annual volatility",
         f"{ann_vol:.2%}",
-        help="Deviazione standard annualizzata dei rendimenti giornalieri.",
+        help="Annualised standard deviation of daily returns.",
     )
 with ccol3:
     kpi_card(
-        "Storia usata",
-        f"{cal['n_days']:,} giorni",
-        delta=f"{cal['n_days']/252:.1f} anni",
+        "History used",
+        f"{cal['n_days']:,} days",
+        delta=f"{cal['n_days']/252:.1f} years",
         delta_kind="neutral",
-        help=f"Periodo: {cal['start_date']:%d/%m/%Y} → {cal['end_date']:%d/%m/%Y}",
+        help=f"Period: {cal['start_date']:%d/%m/%Y} → {cal['end_date']:%d/%m/%Y}",
     )
 
 st.divider()
@@ -232,7 +232,7 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # FAN CHART
 # --------------------------------------------------------------------------- #
-st.subheader("Fan chart — proiezione probabilistica")
+st.subheader("Fan chart — probabilistic projection")
 
 simulations = sim["simulations"]  # shape: (n_sims, n_months+1)
 n_months = simulations.shape[1] - 1
@@ -258,8 +258,8 @@ fig.add_trace(go.Scatter(
     mode="lines",
     line=dict(color=ps.COLORS["value"], width=0.5),
     opacity=0.4,
-    name="95° percentile",
-    hovertemplate="<b>€%{y:,.0f}</b><extra>95° perc.</extra>",
+    name="95th percentile",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>95th pct.</extra>",
 ))
 fig.add_trace(go.Scatter(
     x=months_axis, y=p5,
@@ -268,8 +268,8 @@ fig.add_trace(go.Scatter(
     opacity=0.4,
     fill="tonexty",
     fillcolor=ps._hex_to_rgba(ps.COLORS["value"], 0.10),
-    name="5° percentile",
-    hovertemplate="<b>€%{y:,.0f}</b><extra>5° perc.</extra>",
+    name="5th percentile",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>5th pct.</extra>",
 ))
 
 # Fascia interna 25-75:
@@ -278,8 +278,8 @@ fig.add_trace(go.Scatter(
     mode="lines",
     line=dict(color=ps.COLORS["value"], width=0.5),
     opacity=0.5,
-    name="75° percentile",
-    hovertemplate="<b>€%{y:,.0f}</b><extra>75° perc.</extra>",
+    name="75th percentile",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>75th pct.</extra>",
 ))
 fig.add_trace(go.Scatter(
     x=months_axis, y=p25,
@@ -288,8 +288,8 @@ fig.add_trace(go.Scatter(
     opacity=0.5,
     fill="tonexty",
     fillcolor=ps._hex_to_rgba(ps.COLORS["value"], 0.22),
-    name="25° percentile",
-    hovertemplate="<b>€%{y:,.0f}</b><extra>25° perc.</extra>",
+    name="25th percentile",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>25th pct.</extra>",
 ))
 
 # Linea mediana p50 (spessa, navy)
@@ -297,8 +297,8 @@ fig.add_trace(go.Scatter(
     x=months_axis, y=p50,
     mode="lines",
     line=dict(color=ps.COLORS["value"], width=2.4),
-    name="Mediana (50°)",
-    hovertemplate="<b>€%{y:,.0f}</b><extra>Mediana</extra>",
+    name="Median (50th)",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>Median</extra>",
 ))
 
 # Linea capitale versato (arancione tratteggiata)
@@ -306,8 +306,8 @@ fig.add_trace(go.Scatter(
     x=months_axis, y=contributed,
     mode="lines",
     line=dict(color=ps.COLORS["benchmark"], width=1.6, dash="dash"),
-    name="Capitale versato",
-    hovertemplate="<b>€%{y:,.0f}</b><extra>Capitale versato</extra>",
+    name="Contributed capital",
+    hovertemplate="<b>€%{y:,.0f}</b><extra>Contributed capital</extra>",
 ))
 
 # Marker sui valori finali (mediana + versato)
@@ -329,7 +329,7 @@ fig.add_trace(go.Scatter(
 
 # Assi + hover unificato + endline annotations
 ps.style_axes(fig, y_format="euro", x_is_date=False)
-ps.hover_unified(fig, x_format="%d mesi")   # x è numerico (mesi)
+ps.hover_unified(fig, x_format="%d months")   # x è numerico (mesi)
 
 # Custom tickvals X: mostro "anni" invece di mesi.
 # Es. n_months=240 (20 anni) → tick a 0, 12, 24, ..., 240 con label 0,1,2,...,20
@@ -342,7 +342,7 @@ year_ticktext = [str(y) for y in year_ticks]
 fig.update_xaxes(
     tickvals=month_tickvals,
     ticktext=year_ticktext,
-    title=dict(text="Anni", font=dict(size=10, color=ps.COLORS["muted"])),
+    title=dict(text="Years", font=dict(size=10, color=ps.COLORS["muted"])),
 )
 
 # Endline annotations sui valori finali (pattern A: destra dopo i marker)
@@ -356,11 +356,11 @@ max_horizon = max(horizons)
 median_final = p50[max_horizon * 12] if max_horizon * 12 <= n_months else p50[-1]
 ps.apply_layout(
     fig,
-    title=f"Proiezione {max_horizon} anni · PAC {monthly_pac:,.0f} €/mese",
-    subtitle=f"Mediana a {max_horizon} anni: €{median_final:,.0f}  ·  "
-             f"{n_simulations:,} simulazioni Monte Carlo",
-    source=f"Calibrazione: {cal['start_date']:%m/%Y}–{cal['end_date']:%m/%Y} "
-           f"({cal['n_days']/252:.1f} anni)",
+    title=f"{max_horizon}-year projection · {monthly_pac:,.0f} €/month",
+    subtitle=f"Median at {max_horizon} years: €{median_final:,.0f}  ·  "
+             f"{n_simulations:,} Monte Carlo simulations",
+    source=f"Calibration: {cal['start_date']:%m/%Y}–{cal['end_date']:%m/%Y} "
+           f"({cal['n_days']/252:.1f} years)",
     height=500,
 )
 
@@ -371,17 +371,17 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # TABELLA PERCENTILI PER ORIZZONTE
 # --------------------------------------------------------------------------- #
-st.subheader("Percentili per orizzonte")
+st.subheader("Percentiles by horizon")
 
 nominal_toggle = st.radio(
-    "Vista",
-    options=["Nominali", "Reali (a prezzi di oggi)"],
+    "View",
+    options=["Nominal", "Real (in today's money)"],
     horizontal=True,
-    help="**Nominali**: valori assoluti nel futuro. "
-         "**Reali**: deflazionati per l'inflazione, mostrano il potere "
-         "d'acquisto in euro di oggi. La differenza cresce con l'orizzonte.",
+    help="**Nominal**: absolute future values. "
+         "**Real**: deflated for inflation, showing purchasing power in "
+         "today's euros. The difference grows with the horizon.",
 )
-use_real = "Reali" in nominal_toggle
+use_real = "Real" in nominal_toggle
 
 rows = []
 for years in sorted(horizons):
@@ -390,13 +390,13 @@ for years in sorted(horizons):
     h = sim["horizons"][years]
     perc = h["percentiles_real"] if use_real else h["percentiles_nominal"]
     rows.append({
-    "Orizzonte": f"{years} anni",
-    "Versato tot.": round(h["total_contributed"]),
-    "5° (worst)": round(perc[5]),
-    "25°": round(perc[25]),
-    "Mediana (50°)": round(perc[50]),
-    "75°": round(perc[75]),
-    "95° (best)": round(perc[95]),
+    "Horizon": f"{years} years",
+    "Total contributed": round(h["total_contributed"]),
+    "5th (worst)": round(perc[5]),
+    "25th": round(perc[25]),
+    "Median (50th)": round(perc[50]),
+    "75th": round(perc[75]),
+    "95th (best)": round(perc[95]),
 })
 
 df = pd.DataFrame(rows)
@@ -406,20 +406,20 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
     column_config={
-        "Versato tot.":   st.column_config.NumberColumn(format="euro"),
-        "5° (worst)":     st.column_config.NumberColumn(format="euro"),
-        "25°":            st.column_config.NumberColumn(format="euro"),
-        "Mediana (50°)":  st.column_config.NumberColumn(format="euro"),
-        "75°":            st.column_config.NumberColumn(format="euro"),
-        "95° (best)":     st.column_config.NumberColumn(format="euro"),
+        "Total contributed": st.column_config.NumberColumn(format="euro"),
+        "5th (worst)":       st.column_config.NumberColumn(format="euro"),
+        "25th":              st.column_config.NumberColumn(format="euro"),
+        "Median (50th)":     st.column_config.NumberColumn(format="euro"),
+        "75th":              st.column_config.NumberColumn(format="euro"),
+        "95th (best)":       st.column_config.NumberColumn(format="euro"),
     },
 )
 
 if use_real:
     st.caption(
-        f"💡 I valori reali sono deflazionati per un'inflazione annua del "
-        f"**{inflation_pct:.2f}%**. A 20 anni, l'erosione del potere d'acquisto "
-        f"è di circa {(1 - 1/(1+inflation_rate)**20)*100:.1f}%."
+        f"Real values are deflated for annual inflation of "
+        f"**{inflation_pct:.2f}%**. Over 20 years, the erosion of purchasing "
+        f"power is about {(1 - 1/(1+inflation_rate)**20)*100:.1f}%."
     )
 
 st.divider()
@@ -427,16 +427,16 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # PROBABILITÀ DI UN OBIETTIVO
 # --------------------------------------------------------------------------- #
-st.subheader("Probabilità di raggiungere un obiettivo")
+st.subheader("Probability of reaching a goal")
 st.caption(
-    "Data una soglia in € e un orizzonte, calcola la probabilità che il "
-    "portafoglio la superi. Utile per calibrare obiettivi realistici."
+    "Given a € threshold and a horizon, computes the probability that the "
+    "portfolio exceeds it. Useful for setting realistic goals."
 )
 
 tcol1, tcol2, tcol3 = st.columns([1, 1, 1])
 with tcol1:
     target_value = st.number_input(
-        "Obiettivo (€)",
+        "Goal (€)",
         min_value=0.0,
         value=100_000.0,
         step=10_000.0,
@@ -444,7 +444,7 @@ with tcol1:
     )
 with tcol2:
     target_horizon = st.selectbox(
-        "Orizzonte", options=sorted(horizons),
+        "Horizon", options=sorted(horizons),
         index=len(sorted(horizons)) // 2,  # default: orizzonte "medio"
     )
 with tcol3:
@@ -452,10 +452,9 @@ with tcol3:
     # (compensa l'altezza della label del number_input, ~28px).
     st.markdown("<div style='height: 1.75rem'></div>", unsafe_allow_html=True)
     target_use_real = st.checkbox(
-        "Obiettivo in € di oggi (reali)",
+        "Goal in today's € (real)",
         value=False,
-        help="Se attivo, l'obiettivo è confrontato con i valori "
-             "deflazionati per l'inflazione.",
+        help="If enabled, the goal is compared against inflation-deflated values.",
     )
 
 prob = mc.probability_of_target(
@@ -469,39 +468,39 @@ prob = mc.probability_of_target(
 mcol1, mcol2 = st.columns([1, 2])
 with mcol1:
     kpi_card(
-        "Probabilità",
+        "Probability",
         f"{prob:.1%}",
-        delta=f"a {target_horizon} anni",
+        delta=f"at {target_horizon} years",
         delta_kind="neutral",
     )
 
 with mcol2:
-    real_suffix = ' (reali)' if target_use_real else ''
+    real_suffix = ' (real)' if target_use_real else ''
     if prob >= 0.90:
         callout(
-            f"<strong>Obiettivo molto probabile</strong> ({prob:.1%}). Con questi "
-            f"parametri, superare €{target_value:,.0f}{real_suffix} a "
-            f"{target_horizon} anni è quasi scontato.",
+            f"<strong>Goal very likely</strong> ({prob:.1%}). With these "
+            f"parameters, exceeding €{target_value:,.0f}{real_suffix} at "
+            f"{target_horizon} years is almost a given.",
             kind="success",
         )
     elif prob >= 0.50:
         callout(
-            f"<strong>Obiettivo plausibile</strong> ({prob:.1%}). C'è più di 1 "
-            f"chance su 2 di superare €{target_value:,.0f}{real_suffix} a "
-            f"{target_horizon} anni.",
+             f"<strong>Goal plausible</strong> ({prob:.1%}). There's better than "
+            f"a 1-in-2 chance of exceeding €{target_value:,.0f}{real_suffix} at "
+            f"{target_horizon} years.",
             kind="info",
         )
     elif prob >= 0.20:
         callout(
-            f"<strong>Obiettivo ambizioso</strong> ({prob:.1%}). Meno di 1 chance "
-            f"su 4. Considera un PAC più alto o un orizzonte più lungo.",
+            f"<strong>Goal ambitious</strong> ({prob:.1%}). Less than a 1-in-4 "
+            f"chance. Consider a larger contribution or a longer horizon.",
             kind="warning",
         )
     else:
         callout(
-            f"<strong>Obiettivo poco realistico</strong> ({prob:.1%}). Con questi "
-            f"parametri, superare €{target_value:,.0f} a {target_horizon} anni "
-            f"è improbabile.",
+            f"<strong>Goal unrealistic</strong> ({prob:.1%}). With these "
+            f"parameters, exceeding €{target_value:,.0f} at {target_horizon} years "
+            f"is unlikely.",
             kind="danger",
         )
 
@@ -510,54 +509,53 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # INTERPRETAZIONE TESTUALE (auto-generata dal modulo)
 # --------------------------------------------------------------------------- #
-st.subheader("Interpretazione")
+st.subheader("Interpretation")
 callout(result["interpretation"], kind="info")
 
 # --------------------------------------------------------------------------- #
 # EXPANDER DIDATTICO / CAVEAT METODOLOGICI
 # --------------------------------------------------------------------------- #
-with st.expander("ℹ️ Metodologia e caveat"):
+with st.expander("Methodology and caveats"):
     st.markdown(
         f"""
-        **Come funziona la simulazione**
-        1. **Calibrazione**: si scaricano `{lookback_years}` anni di storia
-           degli ETF target e si costruisce una serie di rendimenti giornalieri
-           del portafoglio pesato secondo l'allocazione target
-        2. **Bootstrap IID**: per ogni giorno futuro si campiona (con
-           ripetizione) un giorno storico. È il metodo più semplice che
-           preserva la distribuzione empirica dei rendimenti (skewness,
-           fat tails), a differenza del classico GBM gaussiano
-        3. **Composizione mensile**: si aggregano 21 giorni per mese,
-           si applica il rendimento composto al capitale + PAC del mese
-        4. **`{n_simulations:,}` path** proiettati per l'orizzonte massimo
-           di **{max(horizons)} anni**
+        **How the simulation works**
+        1. **Calibration**: `{lookback_years}` years of history for the target
+           ETFs are downloaded and a series of daily returns is built for the
+           portfolio weighted by the target allocation
+        2. **IID bootstrap**: for each future day, a historical day is sampled
+           (with replacement). It's the simplest method that preserves the
+           empirical return distribution (skewness, fat tails), unlike the
+           classic Gaussian GBM
+        3. **Monthly compounding**: 21 days are aggregated per month, and the
+           compounded return is applied to capital + that month's contribution
+        4. **`{n_simulations:,}` paths** projected over the longest horizon of
+           **{max(horizons)} years**
 
-        **Caveat metodologici** (importanti da tenere presenti):
+        **Methodological caveats** (worth keeping in mind):
 
-        - **IID assumption**: ignora il *volatility clustering* (i giorni
-          volatili tendono a raggrupparsi, cf. GARCH). È una semplificazione
-          ma migliore del GBM gaussiano
-        - **Calibration window limitata** ({lookback_years} anni): potrebbe
-          non includere crash estremi tipo 2008 o 2020
-        - **Rendimenti passati ≠ futuri**: la calibrazione assume che la
-          distribuzione futura assomigli a quella passata. È l'ipotesi più
-          debole ma anche l'unica ragionevole senza modelli macro
-        - **Ritenute fiscali sui dividendi**: non considerate
-          (impatto ~0.1-0.3% annuo sui rendimenti netti)
-        - **Bias comportamentale del retail**: la simulazione assume
-          mantenimento del PAC anche durante i drawdown. In pratica, molti
-          smettono di versare nei momenti peggiori — **esattamente quando
-          bisognerebbe insistere**
+        - **IID assumption**: ignores *volatility clustering* (volatile days
+          tend to cluster, cf. GARCH). A simplification, but better than
+          Gaussian GBM
+        - **Limited calibration window** ({lookback_years} years): may not
+          include extreme crashes like 2008 or 2020
+        - **Past returns ≠ future**: calibration assumes the future distribution
+          resembles the past one. It's the weakest assumption, but also the only
+          reasonable one without macro models
+        - **Dividend withholding taxes**: not accounted for
+          (~0.1-0.3% per year impact on net returns)
+        - **Retail behavioural bias**: the simulation assumes contributions
+          continue even during drawdowns. In practice many stop contributing at
+          the worst moments — **exactly when they should persist**
 
-        **Come leggere i percentili**
+        **How to read the percentiles**
 
-        - **5° percentile**: scenario molto pessimistico (95 casi su 100 vanno meglio)
-        - **25° percentile**: scenario pessimistico ma plausibile
-        - **50° (mediana)**: risultato "atteso" — metà dei casi va meglio, metà peggio
-        - **75° percentile**: scenario ottimistico ma plausibile
-        - **95° percentile**: scenario molto ottimistico (solo 5 casi su 100 vanno meglio)
+        - **5th percentile**: very pessimistic scenario (95 out of 100 do better)
+        - **25th percentile**: pessimistic but plausible scenario
+        - **50th (median)**: the "expected" result — half the cases do better, half worse
+        - **75th percentile**: optimistic but plausible scenario
+        - **95th percentile**: very optimistic scenario (only 5 out of 100 do better)
 
-        Il **range 25°-75°** (fascia più marcata nel fan chart) è quello
-        che vale la pena guardare per pianificazione realistica.
+        The **25th-75th range** (the darker band in the fan chart) is the one
+        worth watching for realistic planning.
         """
     )
