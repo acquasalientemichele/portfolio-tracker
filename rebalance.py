@@ -75,7 +75,7 @@ def suggest_rebalance(
     """
     if new_cash <= fee_per_order:
         return _empty_result(
-            new_cash, f"Cash insufficiente: {new_cash:.2f}€ ≤ commissione {fee_per_order:.2f}€"
+            new_cash, f"Insufficient cash: {new_cash:.2f}€ ≤ fee {fee_per_order:.2f}€"
         )
 
     # Normalizza prices a dict
@@ -277,10 +277,10 @@ def _build_single_order(ticker, cash_net, price, fee, weights_post,
     target_pct = target_alloc.get(ticker, 0) * 100
     weight_pct = weights_post[ticker] * 100
     dev_pct = deviation_post[ticker] * 100
-    message = (f"Investi {cash_net:.2f}€ su {ticker} (totale uscito dal conto: "
-               f"{cash_net + fee:.2f}€, di cui {fee:.2f}€ di commissione). "
-               f"Peso post: {weight_pct:.1f}% (target {target_pct:.0f}%, "
-               f"deviazione {dev_pct:+.2f} pp, soglia {threshold*100:.1f}%).")
+    message = (f"Invest {cash_net:.2f}€ in {ticker} (total leaving the account: "
+               f"{cash_net + fee:.2f}€, of which {fee:.2f}€ in fees). "
+               f"Weight after: {weight_pct:.1f}% (target {target_pct:.0f}%, "
+               f"deviation {dev_pct:+.2f} pp, threshold {threshold*100:.1f}%).")
     return {'orders': orders, 'summary': summary, 'message': message}
 
 
@@ -312,10 +312,10 @@ def _build_double_order(t1, t2, cash1, cash2, prices, fee,
         'max_deviation_post': max(abs(d1), abs(d2)),
     }
     message = (
-        f"Split necessario (deviazione singolo > {threshold*100:.1f}%). "
-        f"{cash1:.2f}€ su {t1}, {cash2:.2f}€ su {t2} "
-        f"(totale uscito dal conto: {cash1 + cash2 + total_fees:.2f}€, "
-        f"di cui {total_fees:.2f}€ di commissioni). "
-        f"Pesi post: {w1*100:.1f}% / {w2*100:.1f}%."
+        f"Split needed (single-buy deviation > {threshold*100:.1f}%). "
+        f"{cash1:.2f}€ in {t1}, {cash2:.2f}€ in {t2} "
+        f"(total leaving the account: {cash1 + cash2 + total_fees:.2f}€, "
+        f"of which {total_fees:.2f}€ in fees). "
+        f"Weights after: {w1*100:.1f}% / {w2*100:.1f}%."
     )
     return {'orders': orders, 'summary': summary, 'message': message}
