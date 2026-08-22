@@ -5,6 +5,7 @@ data/*.csv
 data/~$*
 !data/.gitkeep
 data/*.json
+data/holdings_raw
 
 # Python
 __pycache__/
